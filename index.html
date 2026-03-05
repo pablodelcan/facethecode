@@ -86,17 +86,167 @@
     100% { text-shadow: 0 0 3px rgba(255,255,255,0.7), 0 0 7px rgba(255,255,255,0.15); }
   }
 
-  /* HUD */
-  #hud {
+  /* HUD - hidden behind info button */
+  #info-btn {
     position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
+    bottom: 24px;
+    right: 24px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.25);
+    color: rgba(255,255,255,0.6);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 20px;
+    font-style: italic;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.2s;
+    user-select: none;
+  }
+  #info-btn:hover {
+    background: rgba(255,255,255,0.15);
+    border-color: rgba(255,255,255,0.5);
+    color: #fff;
+    transform: scale(1.1);
+  }
+  #info-btn.active {
+    background: rgba(255,255,255,0.18);
+    border-color: rgba(255,255,255,0.6);
+    color: #fff;
+  }
+
+  #settings-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(10,10,10,0.95);
+    border-top: 1px solid rgba(255,255,255,0.12);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: 24px 20px 28px;
+    z-index: 99;
+    transform: translateY(100%);
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+  #settings-panel.open {
+    transform: translateY(0);
+  }
+
+  .settings-inner {
+    max-width: 520px;
+    margin: 0 auto;
+  }
+
+  .settings-section {
+    margin-bottom: 18px;
+  }
+  .settings-section:last-child {
+    margin-bottom: 0;
+  }
+
+  .settings-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  /* Slider controls */
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .slider-name {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: rgba(255,255,255,0.55);
+    min-width: 90px;
+    letter-spacing: 0.05em;
+  }
+  .slider-val {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: rgba(255,255,255,0.4);
+    min-width: 32px;
+    text-align: right;
+  }
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: 1;
+    height: 3px;
+    background: rgba(255,255,255,0.12);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.3);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover {
+    background: #fff;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.3);
+    cursor: pointer;
+  }
+
+  /* Sound badge */
+  .sound-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px;
+    padding: 5px 12px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .sound-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255,100,100,0.6);
+    animation: dot-blink 2s ease-in-out infinite;
+  }
+  @keyframes dot-blink {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+
+  #hud {
     display: flex;
     gap: 6px;
     flex-wrap: wrap;
     justify-content: center;
-    max-width: 90vw;
+    max-width: 100%;
   }
 
   .key-hint {
@@ -253,32 +403,75 @@
   </div>
 </div>
 
-<div id="hud">
-  <div id="num-row">
-    <button class="num-btn" data-n="0" title="default">0</button>
-    <button class="num-btn" data-n="1" title="wink">1</button>
-    <button class="num-btn" data-n="2" title="smile">2</button>
-    <button class="num-btn" data-n="3" title="frown">3</button>
-    <button class="num-btn" data-n="4" title="sad">4</button>
-    <button class="num-btn" data-n="5" title="excited">5</button>
-    <button class="num-btn" data-n="6" title="sweat">6</button>
-    <button class="num-btn" data-n="7" title="angry">7</button>
-    <button class="num-btn" data-n="8" title="surprised">8</button>
-    <button class="num-btn" data-n="9" title="dead">9</button>
-  </div>
-  <div id="key-row">
-    <div class="key-hint"><span>A</span> alert</div>
-    <div class="key-hint"><span>S</span> scan</div>
-    <div class="key-hint"><span>D</span> dizzy</div>
-    <div class="key-hint"><span>F</span> flicker</div>
-    <div class="key-hint"><span>G</span> glare</div>
-    <div class="key-hint"><span>H</span> happy</div>
-    <div class="key-hint"><span>J</span> jab</div>
-    <div class="key-hint"><span>K</span> kaboom</div>
-    <div class="key-hint"><span>E</span> eyes</div>
-    <div class="key-hint"><span>M</span> mouth</div>
-    <div class="key-hint"><span>R</span> random</div>
-    <div class="key-hint"><span>← →</span> presets</div>
+<button id="info-btn" title="Settings">i</button>
+
+<div id="settings-panel">
+  <div class="settings-inner">
+
+    <div class="settings-section">
+      <div class="settings-label">Controls</div>
+      <div id="hud">
+        <div id="num-row">
+          <button class="num-btn" data-n="0" title="default">0</button>
+          <button class="num-btn" data-n="1" title="wink">1</button>
+          <button class="num-btn" data-n="2" title="smile">2</button>
+          <button class="num-btn" data-n="3" title="frown">3</button>
+          <button class="num-btn" data-n="4" title="sad">4</button>
+          <button class="num-btn" data-n="5" title="excited">5</button>
+          <button class="num-btn" data-n="6" title="sweat">6</button>
+          <button class="num-btn" data-n="7" title="angry">7</button>
+          <button class="num-btn" data-n="8" title="surprised">8</button>
+          <button class="num-btn" data-n="9" title="dead">9</button>
+        </div>
+        <div id="key-row">
+          <div class="key-hint"><span>A</span> alert</div>
+          <div class="key-hint"><span>S</span> scan</div>
+          <div class="key-hint"><span>D</span> dizzy</div>
+          <div class="key-hint"><span>F</span> flicker</div>
+          <div class="key-hint"><span>G</span> glare</div>
+          <div class="key-hint"><span>H</span> happy</div>
+          <div class="key-hint"><span>J</span> jab</div>
+          <div class="key-hint"><span>K</span> kaboom</div>
+          <div class="key-hint"><span>E</span> eyes</div>
+          <div class="key-hint"><span>M</span> mouth</div>
+          <div class="key-hint"><span>R</span> random</div>
+          <div class="key-hint"><span>← →</span> presets</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-label">Settings</div>
+      <div class="slider-row">
+        <span class="slider-name">Thickness</span>
+        <input type="range" id="slider-thickness" min="0" max="100" value="50">
+        <span class="slider-val" id="val-thickness">50</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-name">Speed</span>
+        <input type="range" id="slider-speed" min="0" max="100" value="50">
+        <span class="slider-val" id="val-speed">50</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-name">Glitchiness</span>
+        <input type="range" id="slider-glitch" min="0" max="100" value="30">
+        <span class="slider-val" id="val-glitch">30</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-name">Glow</span>
+        <input type="range" id="slider-glow" min="0" max="100" value="50">
+        <span class="slider-val" id="val-glow">50</span>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-label">Audio</div>
+      <div class="sound-badge">
+        <span class="sound-dot"></span>
+        Sound effects — not working yet
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -444,10 +637,12 @@ function scrambleTo(target, onDone) {
   const delays = Array.from({length:len}, (_,i) => {
     if (from[i]===target[i]||target[i]==="\n") return 0;
     if (target[i]===" "&&from[i]===" ") return 0;
-    return Math.floor(Math.random()*8)+2;
+    const gAmt = window._glitchAmount || 7;
+    return Math.floor(Math.random()*gAmt)+2;
   });
   const maxD = Math.max(...delays, 1);
   let frame = 0;
+  const spd = window._scrambleSpeed || 38;
   const iv = setInterval(() => {
     frame++;
     let out = "";
@@ -463,7 +658,7 @@ function scrambleTo(target, onDone) {
       animating = false;
       if (onDone) onDone();
     }
-  }, 38);
+  }, spd);
 }
 
 function setFaceInstant(f) { document.getElementById("ascii-face").textContent = f; }
@@ -871,6 +1066,63 @@ document.querySelectorAll(".num-btn").forEach(btn => {
 setFaceInstant(emotionFace(0));
 setLabel(E[0].name);
 resetIdle();
+
+// ── Settings panel toggle ─────────────────────────────────────────────────────
+(function() {
+  const btn = document.getElementById('info-btn');
+  const panel = document.getElementById('settings-panel');
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = panel.classList.toggle('open');
+    btn.classList.toggle('active', isOpen);
+  });
+  document.addEventListener('click', (e) => {
+    if (!panel.contains(e.target) && e.target !== btn) {
+      panel.classList.remove('open');
+      btn.classList.remove('active');
+    }
+  });
+})();
+
+// ── Slider controls ───────────────────────────────────────────────────────────
+(function() {
+  const sliders = [
+    { id: 'slider-thickness', valId: 'val-thickness', apply: function(v) {
+      const weight = 100 + v * 8; // 100-900
+      document.getElementById('ascii-face').style.fontWeight = weight;
+    }},
+    { id: 'slider-speed', valId: 'val-speed', apply: function(v) {
+      // Adjusts scramble interval: 70ms at 0, 15ms at 100
+      window._scrambleSpeed = Math.round(70 - v * 0.55);
+    }},
+    { id: 'slider-glitch', valId: 'val-glitch', apply: function(v) {
+      // Controls how many extra scramble frames
+      window._glitchAmount = Math.round(2 + v * 0.16);
+    }},
+    { id: 'slider-glow', valId: 'val-glow', apply: function(v) {
+      const intensity = v / 100;
+      const r1 = Math.round(3 + intensity * 12);
+      const r2 = Math.round(7 + intensity * 25);
+      const a1 = (0.4 + intensity * 0.6).toFixed(2);
+      const a2 = (0.1 + intensity * 0.4).toFixed(2);
+      document.getElementById('ascii-face').style.textShadow =
+        `0 0 ${r1}px rgba(255,255,255,${a1}), 0 0 ${r2}px rgba(255,255,255,${a2})`;
+    }}
+  ];
+  // Set defaults
+  window._scrambleSpeed = 38;
+  window._glitchAmount = 7;
+
+  sliders.forEach(s => {
+    const input = document.getElementById(s.id);
+    const valEl = document.getElementById(s.valId);
+    input.addEventListener('input', () => {
+      const v = parseInt(input.value);
+      valEl.textContent = v;
+      s.apply(v);
+    });
+  });
+})();
 
 // ── Password gate ─────────────────────────────────────────────
 (function() {
