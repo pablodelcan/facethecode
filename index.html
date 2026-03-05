@@ -284,13 +284,14 @@
 
 <script>
 // ═══════════════════════════════════════════════════════════════
-// 18-char fixed grid. text-align:left on pre so columns are absolute.
+// 18-char fixed grid.
 // ═══════════════════════════════════════════════════════════════
 
 const B0 = "   __      __     ";
 const A0 = "  /  \\    /  \\    ";
 const P0 = "  (@)     (@)     ";
 const N0 = "        /\n       /_";
+const GLYPHS = "/<>\\|_-*().!=?^~+";
 
 const M = [
   "   <//***X<//>    ",  // 0 original
@@ -318,16 +319,16 @@ const EYES = [
 ];
 
 const E = [
-  { name:"0 DEFAULT",   brow:B0,                   arc:A0,                    pupil:P0,                   mouth:M[0] },
-  { name:"1 WINK",      brow:B0,                   arc:A0,                    pupil:P0,                   mouth:M[1] },
-  { name:"2 SMILE",     brow:B0,                   arc:A0,                    pupil:P0,                   mouth:M[1] },
-  { name:"3 FROWN",     brow:B0,                   arc:A0,                    pupil:P0,                   mouth:M[2] },
-  { name:"4 SAD",       brow:"    _\\      /_     ", arc:A0,                    pupil:P0,                   mouth:M[3] },
-  { name:"5 EXCITED",   brow:"  __        __     ", arc:" /   \\    /   \\    ", pupil:P0,                   mouth:M[0] },
-  { name:"6 SWEAT",     brow:B0,                   arc:A0,                    pupil:"  (@).    (@)     ",  mouth:M[4] },
-  { name:"7 ANGRY",     brow:"  \\__      __/     ", arc:A0,                    pupil:P0,                   mouth:M[5] },
-  { name:"8 SURPRISED", brow:"   --       --    ",  arc:" /   \\    /   \\   ",  pupil:"  (o)     (o)     ", mouth:M[6] },
-  { name:"9 DEAD",      brow:"                  ",  arc:A0,                    pupil:"  (X)     (X)     ", mouth:M[4] },
+  { name:"0 DEFAULT",   brow:B0,                    arc:A0,                    pupil:P0,                    mouth:M[0] },
+  { name:"1 WINK",      brow:B0,                    arc:A0,                    pupil:P0,                    mouth:M[1] },
+  { name:"2 SMILE",     brow:B0,                    arc:A0,                    pupil:P0,                    mouth:M[1] },
+  { name:"3 FROWN",     brow:B0,                    arc:A0,                    pupil:P0,                    mouth:M[2] },
+  { name:"4 SAD",       brow:"    _\\      /_     ",  arc:A0,                    pupil:P0,                    mouth:M[3] },
+  { name:"5 EXCITED",   brow:"  __        __     ",  arc:" /   \\    /   \\    ", pupil:P0,                    mouth:M[0] },
+  { name:"6 SWEAT",     brow:B0,                    arc:A0,                    pupil:"  (@).    (@)     ",   mouth:M[4] },
+  { name:"7 ANGRY",     brow:"  \\__      __/     ",  arc:A0,                    pupil:P0,                    mouth:M[5] },
+  { name:"8 SURPRISED", brow:"   --       --    ",   arc:" /   \\    /   \\   ",  pupil:"  (o)     (o)     ",  mouth:M[6] },
+  { name:"9 DEAD",      brow:"                  ",   arc:A0,                    pupil:"  (X)     (X)     ",  mouth:M[4] },
 ];
 
 const PRESETS = [
@@ -346,109 +347,94 @@ const PRESETS = [
 let state = { ei:0, mi:0, pi:0 };
 let animating = false;
 
-// ── Audio Engine ──────────────────────────────────────────────────────────────
-const AudioCtx = window.AudioContext || window.webkitAudioContext;
-let audioCtx = null;
-
+// ── Audio ─────────────────────────────────────────────────────────────────────
+// AudioContext created ONLY after first user gesture — fixes autoplay block
+let _ctx = null;
 function getCtx() {
-  if (!audioCtx) audioCtx = new AudioCtx();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-  return audioCtx;
+  if (!_ctx) _ctx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_ctx.state === 'suspended') _ctx.resume();
+  return _ctx;
 }
 
-function beep(freq, type, duration, gain, detune) {
+function tone(freq, type, dur, vol, detune) {
   try {
     const ctx = getCtx();
-    const osc = ctx.createOscillator();
-    const vol = ctx.createGain();
-    osc.connect(vol);
-    vol.connect(ctx.destination);
-    osc.type = type || 'square';
-    osc.frequency.setValueAtTime(freq, ctx.currentTime);
-    if (detune) osc.detune.setValueAtTime(detune, ctx.currentTime);
-    vol.gain.setValueAtTime(gain || 0.08, ctx.currentTime);
-    vol.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + duration);
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = type || 'square';
+    o.frequency.setValueAtTime(freq, ctx.currentTime);
+    if (detune) o.detune.setValueAtTime(detune, ctx.currentTime);
+    g.gain.setValueAtTime(vol || 0.07, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+    o.start(ctx.currentTime);
+    o.stop(ctx.currentTime + dur + 0.01);
   } catch(e) {}
 }
 
-function playClick()     { beep(880, 'square', 0.04, 0.06); }
-function playAction()    { beep(440, 'sawtooth', 0.12, 0.07); setTimeout(()=>beep(660,'square',0.08,0.05), 40); }
-function playScramble()  { beep(220, 'sawtooth', 0.06, 0.05, 200); }
-function playGlitch()    { 
-  [0,30,60,90].forEach(t => setTimeout(()=>beep(110+Math.random()*440,'sawtooth',0.05,0.04), t));
-}
-function playChime()     { 
-  [523,659,784,1047].forEach((f,i) => setTimeout(()=>beep(f,'sine',0.18,0.06), i*60));
-}
-function playAlarm()     { 
-  [880,440,880,440].forEach((f,i) => setTimeout(()=>beep(f,'square',0.1,0.07), i*80));
-}
-function playLow()       { beep(110, 'sawtooth', 0.2, 0.08); }
-function playSweep() {
+function noise(dur, vol) {
   try {
     const ctx = getCtx();
-    const osc = ctx.createOscillator();
-    const vol = ctx.createGain();
-    osc.connect(vol); vol.connect(ctx.destination);
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(80, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.3);
-    vol.gain.setValueAtTime(0.07, ctx.currentTime);
-    vol.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.35);
-  } catch(e) {}
-}
-function playDescend() {
-  try {
-    const ctx = getCtx();
-    const osc = ctx.createOscillator();
-    const vol = ctx.createGain();
-    osc.connect(vol); vol.connect(ctx.destination);
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(600, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.4);
-    vol.gain.setValueAtTime(0.06, ctx.currentTime);
-    vol.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.45);
-  } catch(e) {}
-}
-function playBoop()      { beep(330, 'sine', 0.15, 0.07); setTimeout(()=>beep(495,'sine',0.12,0.06), 80); }
-function playStatic()    {
-  try {
-    const ctx = getCtx();
-    const buf = ctx.createBuffer(1, ctx.sampleRate*0.15, ctx.sampleRate);
+    const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * dur), ctx.sampleRate);
     const d = buf.getChannelData(0);
-    for (let i=0; i<d.length; i++) d[i] = (Math.random()*2-1)*0.15;
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1);
     const src = ctx.createBufferSource();
     src.buffer = buf;
-    const vol = ctx.createGain();
-    vol.gain.setValueAtTime(0.3, ctx.currentTime);
-    vol.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+0.15);
-    src.connect(vol); vol.connect(ctx.destination);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(vol || 0.06, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+    src.connect(g); g.connect(ctx.destination);
     src.start();
   } catch(e) {}
+}
+
+function sweep(f0, f1, dur, type) {
+  try {
+    const ctx = getCtx();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = type || 'sawtooth';
+    o.frequency.setValueAtTime(f0, ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(f1, ctx.currentTime + dur);
+    g.gain.setValueAtTime(0.07, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+    o.start(ctx.currentTime);
+    o.stop(ctx.currentTime + dur + 0.01);
+  } catch(e) {}
+}
+
+function playClick()    { tone(900, 'square', 0.04, 0.05); }
+function playAction()   { tone(440, 'sawtooth', 0.1, 0.06); setTimeout(()=>tone(660,'square',0.07,0.04),40); }
+function playScramble() { tone(220, 'sawtooth', 0.07, 0.04, 150); }
+function playGlitch()   { [0,30,60,90].forEach(t=>setTimeout(()=>tone(110+Math.random()*440,'sawtooth',0.05,0.04),t)); }
+function playChime()    { [523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,'sine',0.2,0.06),i*65)); }
+function playAlarm()    { [880,440,880,440].forEach((f,i)=>setTimeout(()=>tone(f,'square',0.09,0.06),i*80)); }
+function playLow()      { tone(100, 'sawtooth', 0.22, 0.08); }
+function playSweepUp()  { sweep(80, 1200, 0.28); }
+function playDescend()  { sweep(600, 80, 0.35, 'square'); }
+function playBoop()     { tone(330,'sine',0.14,0.06); setTimeout(()=>tone(495,'sine',0.11,0.05),80); }
+function playStatic()   { noise(0.15, 0.08); }
+function playDeny()     { tone(220,'square',0.18,0.07); setTimeout(()=>tone(160,'square',0.18,0.06),130); }
+function playUnlock()   { playChime(); }
+
+// stress-level sound: pitch rises with stress
+function playStress(level) {
+  const base = 300 + level * 80;
+  tone(base, 'sawtooth', 0.08, 0.05 + level * 0.005);
+  if (level > 3) setTimeout(()=>tone(base*1.5,'square',0.06,0.04), 50);
+  if (level > 6) { noise(0.1, 0.05); setTimeout(()=>noise(0.08,0.04), 80); }
+  if (level >= 10) playAlarm();
 }
 
 // ── Build face ────────────────────────────────────────────────────────────────
 function face(brow, arc, pupil, mouth) {
   return [brow, arc, pupil, "", N0, "", mouth].join("\n");
 }
-function presetFace(s) {
-  const e = EYES[s.ei];
-  return face(e[0], e[1], e[2], M[s.mi]);
-}
-function emotionFace(n) {
-  const em = E[n];
-  return face(em.brow, em.arc, em.pupil, em.mouth);
-}
+function presetFace(s) { const e=EYES[s.ei]; return face(e[0],e[1],e[2],M[s.mi]); }
+function emotionFace(n) { const em=E[n]; return face(em.brow,em.arc,em.pupil,em.mouth); }
 
 // ── Scramble ──────────────────────────────────────────────────────────────────
-const GLYPHS = "/<>\\|_-*().!=?^~+";
-
 function scrambleTo(target, onDone) {
   if (animating) return;
   animating = true;
@@ -465,7 +451,7 @@ function scrambleTo(target, onDone) {
   const iv = setInterval(() => {
     frame++;
     let out = "";
-    for (let i=0; i<len; i++) {
+    for (let i=0;i<len;i++) {
       if (target[i]==="\n") { out+="\n"; continue; }
       if (frame>=delays[i]||delays[i]===0) out+=target[i];
       else out+=(target[i]===" "&&from[i]===" ")?" ":GLYPHS[Math.floor(Math.random()*GLYPHS.length)];
@@ -483,231 +469,384 @@ function scrambleTo(target, onDone) {
 function setFaceInstant(f) { document.getElementById("ascii-face").textContent = f; }
 function setLabel(t) { document.getElementById("expr-label").textContent = t; }
 
-// ── Idle drift system ─────────────────────────────────────────────────────────
+// ── Idle drift ────────────────────────────────────────────────────────────────
 let idleTimer = null;
-let idleInterval = null;
-let idleSpeed = 6000;   // ms between auto-changes, starts slow
-const IDLE_MIN = 800;   // fastest
-const IDLE_ACCEL = 0.75; // multiplier each step
+let idleIv = null;
+let idleSpeed = 6000;
+const IDLE_MIN = 700;
+const IDLE_ACCEL = 0.72;
 
 function resetIdle() {
   clearTimeout(idleTimer);
-  clearInterval(idleInterval);
+  clearInterval(idleIv);
   idleSpeed = 6000;
   idleTimer = setTimeout(startIdle, idleSpeed);
 }
 
 function startIdle() {
   doIdleStep();
-  idleInterval = setInterval(() => {
-    idleSpeed = Math.max(IDLE_MIN, idleSpeed * IDLE_ACCEL);
-    clearInterval(idleInterval);
-    idleInterval = setInterval(doIdleStep, idleSpeed);
-  }, 200);
-  idleInterval = setInterval(doIdleStep, idleSpeed);
+  scheduleNextIdle();
+}
+
+function scheduleNextIdle() {
+  idleSpeed = Math.max(IDLE_MIN, idleSpeed * IDLE_ACCEL);
+  idleIv = setTimeout(() => { doIdleStep(); scheduleNextIdle(); }, idleSpeed);
 }
 
 function doIdleStep() {
   if (animating) return;
-  // randomly pick: cycle eyes, mouth, or next preset
   const roll = Math.random();
-  if (roll < 0.4) {
-    state.ei = (state.ei+1) % EYES.length;
-    playScramble();
-    scrambleTo(presetFace(state));
-  } else if (roll < 0.7) {
-    state.mi = (state.mi+1) % M.length;
-    playScramble();
-    scrambleTo(presetFace(state));
-  } else {
-    state.pi = (state.pi+1) % PRESETS.length;
-    const p = PRESETS[state.pi];
-    state.ei = p.ei; state.mi = p.mi;
-    playScramble();
-    scrambleTo(presetFace(state));
-  }
+  if (roll < 0.4)      { state.ei=(state.ei+1)%EYES.length; playScramble(); scrambleTo(presetFace(state)); }
+  else if (roll < 0.7) { state.mi=(state.mi+1)%M.length;    playScramble(); scrambleTo(presetFace(state)); }
+  else                 { state.pi=(state.pi+1)%PRESETS.length; const p=PRESETS[state.pi]; state.ei=p.ei; state.mi=p.mi; playScramble(); scrambleTo(presetFace(state)); }
 }
 
-// ── Special letter animations ─────────────────────────────────────────────────
+// ── X key: progressive stress ─────────────────────────────────────────────────
+let stressLevel = 0;
+let stressResetTimer = null;
+const STRESS_RESET_MS = 3500;
 
-// A — ALERT: eyes widen, brows shoot up, brief alarm
-function doA() {
-  if (animating) return; playAlarm(); setLabel("A ALERT");
-  const f1 = face("    --       --   ", " /   \\    /   \\   ", "  (O)     (O)     ", M[6]);
-  scrambleTo(f1, () => setTimeout(()=> scrambleTo(emotionFace(0), ()=>setLabel("0 DEFAULT")), 800));
-}
+// Helper: random char from a set
+const R = (s) => s[Math.floor(Math.random() * s.length)];
+const CRUD = '!@#$%^&*<>/\\|_-+=?~`\'";:.,';
+const HEAVY = '▓▒░█▄▀■□●○◆◇★☆♦♠♣♥♪♫';
+// We stay ASCII-only for the face glyphs, but for noise we can go wild
+const NOISE_CHARS = '!@#$%^&*<>/\\|_-+=?~`;:.,()[]{}\'\"';
 
-// S — SCAN: pupils sweep left to right across 3 frames
-function doS() {
-  if (animating) return; playSweep(); setLabel("S SCAN");
-  const frames = [
-    face(B0, A0, "  (.)     (.)     ", M[0]),
-    face(B0, A0, "   (@)     (@)    ", M[0]),
-    face(B0, A0, "    (@)     (@)   ", M[0]),
-    face(B0, A0, "   (@)     (@)    ", M[0]),
-    face(B0, A0, P0, M[0]),
-  ];
-  let i = 0;
-  animating = true;
-  const iv = setInterval(() => {
-    document.getElementById("ascii-face").textContent = frames[i];
-    i++;
-    if (i >= frames.length) {
-      clearInterval(iv);
-      animating = false;
-      setLabel("0 DEFAULT");
-    }
-  }, 160);
-}
-
-// D — DIZZY: pupils spin through symbols
-function doD() {
-  if (animating) return; playGlitch(); setLabel("D DIZZY");
-  const spins = ["@","*","o","O","@","*","o","@"];
-  let i = 0;
-  animating = true;
-  const iv = setInterval(() => {
-    const s = spins[i % spins.length];
-    document.getElementById("ascii-face").textContent =
-      face(B0, A0, `  (${s})     (${s})     `, M[0]);
-    i++;
-    if (i >= spins.length) {
-      clearInterval(iv);
-      document.getElementById("ascii-face").textContent = emotionFace(0);
-      animating = false;
-      setLabel("0 DEFAULT");
-    }
-  }, 100);
-}
-
-// F — FLICKER: whole face glitches and restores
-function doF() {
-  if (animating) return; playStatic(); setLabel("F FLICKER");
-  const original = emotionFace(0);
-  animating = true;
-  let i = 0;
-  const frames = 8;
-  const iv = setInterval(() => {
-    if (i % 2 === 0) {
-      // scrambled line
-      let out = "";
-      for (const ch of original) {
-        if (ch === "\n") { out+="\n"; continue; }
-        out += Math.random() < 0.4 ? GLYPHS[Math.floor(Math.random()*GLYPHS.length)] : ch;
-      }
-      document.getElementById("ascii-face").textContent = out;
+// Build a "corrupted" line of given length — more corruption at higher stress
+function corruptLine(base, stress, forceLen) {
+  const len = forceLen || 18;
+  const s = (base || '').padEnd(len, ' ').slice(0, len);
+  let out = '';
+  for (let i = 0; i < len; i++) {
+    const corruptChance = Math.min(0.9, stress * 0.07);
+    if (Math.random() < corruptChance && s[i] !== '\n') {
+      out += NOISE_CHARS[Math.floor(Math.random() * NOISE_CHARS.length)];
     } else {
-      document.getElementById("ascii-face").textContent = original;
+      out += s[i];
     }
-    i++;
-    if (i >= frames) {
-      document.getElementById("ascii-face").textContent = original;
-      clearInterval(iv);
-      animating = false;
-      setLabel("0 DEFAULT");
-    }
-  }, 70);
+  }
+  return out;
 }
 
-// G — GLARE: brows slam down angry, hold, release
-function doG() {
-  if (animating) return; playLow(); setLabel("G GLARE");
-  const angry = face("  \\\\__      __/    ", A0, P0, M[5]);
-  scrambleTo(angry, () => setTimeout(()=>scrambleTo(emotionFace(0), ()=>setLabel("0 DEFAULT")), 900));
+// Build a totally noise-filled line
+function noiseLine(len, density) {
+  let out = '';
+  for (let i = 0; i < len; i++) {
+    out += Math.random() < density
+      ? NOISE_CHARS[Math.floor(Math.random() * NOISE_CHARS.length)]
+      : ' ';
+  }
+  return out;
 }
 
-// H — HAPPY: big smile cascade, chime sound
-function doH() {
-  if (animating) return; playChime(); setLabel("H HAPPY");
-  const happy = face("   __      __     ", A0, P0, "   \\________/     ");
-  scrambleTo(happy, () => setTimeout(()=>scrambleTo(emotionFace(0), ()=>setLabel("0 DEFAULT")), 1000));
+// The 20 stress levels — each one a full face definition
+// Low levels: smile + sweat. Mid: breakdown. High: noise takeover.
+const STRESS_FACES = [
+  // 1 — working, tiny drop
+  () => ({
+    label: "X WORKING",
+    brow:  "   __      __     ",
+    arc:   "  /  \\    /  \\    ",
+    pupil: "  (@).    (@)     ",
+    mouth: "   \\________/     "
+  }),
+  // 2 — two drops, slight brow crease
+  () => ({
+    label: "X WORKING..",
+    brow:  "   _`      _`     ",
+    arc:   "  /  \\    /  \\    ",
+    pupil: "  (@).    (@).    ",
+    mouth: "   \\________/     "
+  }),
+  // 3 — brows tense, smile stiffening
+  () => ({
+    label: "X STRESSED",
+    brow:  "   _\\      /_     ",
+    arc:   "  /  \\    /  \\    ",
+    pupil: "  (o).    (o).    ",
+    mouth: "   \\________/     "
+  }),
+  // 4 — drops multiplying, mouth twitching
+  () => ({
+    label: "X STRESSED.",
+    brow:  "   _\\      /_     ",
+    arc:   "  /  \\    /  \\    ",
+    pupil: "  (o)..   (o)..   ",
+    mouth: "   \\________/     "
+  }),
+  // 5 — brows collapsing inward, smile cracking
+  () => ({
+    label: "X STRESSED..",
+    brow:  "  \\_\\      /_/    ",
+    arc:   "  /  \\    /  \\    ",
+    pupil: "  (o)..   (o)...  ",
+    mouth: "   \\_______/      "
+  }),
+  // 6 — eyes wide, mouth deforming
+  () => ({
+    label: "X LOSING IT",
+    brow:  "  \\__      __/    ",
+    arc:   "  /  \\    /  \\    ",
+    pupil: "  (O)..   (O)...  ",
+    mouth: "   \\____///       "
+  }),
+  // 7 — pupils spinning, brow breaking
+  () => ({
+    label: "X LOSING IT.",
+    brow:  "  \\__      _*/    ",
+    arc:   "  /  \\    /  \\    ",
+    pupil: "  (@)...  (*)...  ",
+    mouth: "   \\/////         "
+  }),
+  // 8 — X eyes appear, mouth gone wild
+  () => ({
+    label: "X MELTDOWN",
+    brow:  "  *__      __*    ",
+    arc:   " /    \\  /    \\   ",
+    pupil: "  (X)...  (X)...  ",
+    mouth: "  \\/\\/\\/\\/\\/      "
+  }),
+  // 9 — asterisks invading brows
+  () => ({
+    label: "X MELTDOWN.",
+    brow:  " *\\__      __/* ",
+    arc:   "/     \\  /     \\ ",
+    pupil: "  (X).... (X).... ",
+    mouth: " >\\/\\/\\/\\/\\/<    "
+  }),
+  // 10 — face filling with noise at edges
+  () => ({
+    label: "X !!!",
+    brow:  "***\\__    __/***  ",
+    arc:   "!/     \\  /     \\!",
+    pupil: " !(X).... (X)....!",
+    mouth: "<>\\/\\/\\/\\/\\/><    "
+  }),
+  // 11 — noise flooding in from sides
+  () => ({
+    label: "X !!!!",
+    brow:  corruptLine("***\\__    __/***  ", 4),
+    arc:   corruptLine("!/     \\  /     \\!", 4),
+    pupil: corruptLine(" !(X).... (X)....!", 4),
+    mouth: corruptLine("<>\\/\\/\\/\\/\\/><    ", 4)
+  }),
+  // 12 — heavy corruption, face barely legible
+  () => ({
+    label: "X CRITICAL",
+    brow:  corruptLine("***\\__    __/***  ", 7),
+    arc:   corruptLine("!/     \\  /     \\!", 7),
+    pupil: corruptLine(" !(X)..... (X)...!", 7),
+    mouth: corruptLine("!<>\\/\\/\\/\\/><!!   ", 7)
+  }),
+  // 13 — noise lines appearing between features
+  () => ({
+    label: "X CRITICAL.",
+    brow:  noiseLine(18, 0.5),
+    arc:   corruptLine("!/     \\  /     \\!", 9),
+    pupil: corruptLine(" !(X)..!.. (X)!..!", 9),
+    mouth: corruptLine("!!<>\\/!!\\/\\/><!!  ", 9)
+  }),
+  // 14 — most of face is noise
+  () => ({
+    label: "X CRITICAL..",
+    brow:  noiseLine(18, 0.7),
+    arc:   noiseLine(18, 0.5),
+    pupil: corruptLine(" !(X)!!... (X)!!.!", 11),
+    mouth: noiseLine(18, 0.6)
+  }),
+  // 15 — only eyes visible through static
+  () => ({
+    label: "X OVERFLOW",
+    brow:  noiseLine(18, 0.8),
+    arc:   noiseLine(18, 0.75),
+    pupil: corruptLine("!!(X)!!!!!!(X)!!!!",13),
+    mouth: noiseLine(18, 0.8)
+  }),
+  // 16 — everything noise, face dissolving
+  () => ({
+    label: "X OVERFLOW.",
+    brow:  noiseLine(18, 0.9),
+    arc:   noiseLine(18, 0.9),
+    pupil: noiseLine(18, 0.85),
+    mouth: noiseLine(18, 0.9)
+  }),
+  // 17 — full noise, occasional face ghost
+  () => ({
+    label: "X ######",
+    brow:  noiseLine(18, 0.95),
+    arc:   noiseLine(18, 0.95),
+    pupil: noiseLine(18, 0.95),
+    mouth: noiseLine(18, 0.95)
+  }),
+  // 18 — total static wall
+  () => ({
+    label: "X ########",
+    brow:  noiseLine(18, 1.0),
+    arc:   noiseLine(18, 1.0),
+    pupil: noiseLine(18, 1.0),
+    mouth: noiseLine(18, 1.0)
+  }),
+  // 19 — static with ghost of original occasionally surfacing
+  () => {
+    const ghost = Math.random() < 0.25;
+    return {
+      label: "X ░░░░░░░░",
+      brow:  ghost ? B0          : noiseLine(18, 1.0),
+      arc:   ghost ? A0          : noiseLine(18, 1.0),
+      pupil: ghost ? P0          : noiseLine(18, 1.0),
+      mouth: ghost ? M[0]        : noiseLine(18, 1.0)
+    };
+  },
+  // 20 — THE VOID: blank then explode back
+  () => ({
+    label: "X          ",
+    brow:  "                  ",
+    arc:   "                  ",
+    pupil: "                  ",
+    mouth: "                  "
+  }),
+];
+
+function doX() {
+  clearTimeout(stressResetTimer);
+
+  // Allow interrupting animation for stress — always fires
+  animating = false;
+
+  stressLevel = Math.min(stressLevel + 1, STRESS_FACES.length);
+  const idx = Math.min(stressLevel - 1, STRESS_FACES.length - 1);
+  const sf = STRESS_FACES[idx]();
+
+  setLabel(sf.label);
+  playStress(stressLevel);
+
+  const target = [sf.brow, sf.arc, sf.pupil, "", N0, "", sf.mouth].join("\n");
+
+  // At very high stress, skip scramble and just slam the face in
+  if (stressLevel >= 14) {
+    setFaceInstant(target);
+    animating = false;
+  } else {
+    scrambleTo(target);
+  }
+
+  // Reset timer — longer wait at higher stress (more dramatic recovery)
+  const resetDelay = Math.min(STRESS_RESET_MS + stressLevel * 200, 7000);
+  stressResetTimer = setTimeout(() => {
+    stressLevel = 0;
+    animating = false;
+    scrambleTo(emotionFace(0), () => setLabel("0 DEFAULT"));
+    playDescend();
+  }, resetDelay);
 }
 
-// J — JAB: face shakes left/right (via label flicker + glitch frames)
-function doJ() {
-  if (animating) return; playAlarm(); setLabel("J JAB");
-  const orig = emotionFace(0);
-  const left  = face(B0, " " + A0.slice(0,-1), " " + P0.slice(0,-1), " " + M[0].slice(0,-1));
-  const right = face(B0, A0.slice(1) + " ", P0.slice(1) + " ", M[0].slice(1) + " ");
-  animating = true;
-  const seq = [left, right, left, right, left, orig];
-  let i = 0;
-  const iv = setInterval(() => {
-    document.getElementById("ascii-face").textContent = seq[i];
-    i++;
-    if (i >= seq.length) {
-      clearInterval(iv);
-      animating = false;
-      setLabel("0 DEFAULT");
-    }
-  }, 80);
-}
-
-// K — KABOOM: eyes expand frame by frame outward then snap back
-function doK() {
-  if (animating) return; playSweep(); setLabel("K KABOOM");
-  const frames = [
-    face(B0, A0, "  (o)     (o)     ", M[0]),
-    face(B0, A0, "  (O)     (O)     ", M[6]),
-    face(" __          __   ", "/    \\    /    \\  ", " (O)      (O)    ", M[6]),
-    face("__            __  ", "/     \\  /     \\ ", " (O)      (O)    ", M[6]),
-    face(B0, A0, P0, M[0]),
-  ];
-  animating = true;
-  let i = 0;
-  const iv = setInterval(() => {
-    document.getElementById("ascii-face").textContent = frames[i];
-    i++;
-    if (i >= frames.length) { clearInterval(iv); animating = false; setLabel("0 DEFAULT"); }
-  }, 130);
-}
-
-// ── Shared controls ───────────────────────────────────────────────────────────
+// ── Special animations ────────────────────────────────────────────────────────
 function doWink() {
   if (animating) return; playBoop(); setLabel("1 WINK");
-  const winkFace = face(
-    "   __             ",
-    "  /  \\    -----   ",
-    "  (@)      --     ",
-    M[1]
-  );
-  scrambleTo(winkFace, () => {
-    setTimeout(() => scrambleTo(emotionFace(0), () => setLabel("0 DEFAULT")), 700);
-  });
+  const winkFace = face("   __             ","  /  \\    -----   ","  (@)      --     ", M[1]);
+  scrambleTo(winkFace, () => setTimeout(()=>scrambleTo(emotionFace(0),()=>setLabel("0 DEFAULT")), 700));
+}
+function doA() {
+  if (animating) return; playAlarm(); setLabel("A ALERT");
+  scrambleTo(face("    --       --   "," /   \\    /   \\   ","  (O)     (O)     ",M[6]),
+    ()=>setTimeout(()=>scrambleTo(emotionFace(0),()=>setLabel("0 DEFAULT")),800));
+}
+function doS() {
+  if (animating) return; playSweepUp(); setLabel("S SCAN");
+  const frames = [
+    face(B0,A0,"  (.)     (.)     ",M[0]),
+    face(B0,A0,"   (@)     (@)    ",M[0]),
+    face(B0,A0,"    (@)     (@)   ",M[0]),
+    face(B0,A0,"   (@)     (@)    ",M[0]),
+    face(B0,A0,P0,M[0]),
+  ];
+  animating = true; let i=0;
+  const iv = setInterval(()=>{
+    document.getElementById("ascii-face").textContent=frames[i]; i++;
+    if(i>=frames.length){clearInterval(iv);animating=false;setLabel("0 DEFAULT");}
+  },160);
+}
+function doD() {
+  if (animating) return; playGlitch(); setLabel("D DIZZY");
+  const spins=["@","*","o","O","@","*","o","@"]; let i=0;
+  animating=true;
+  const iv=setInterval(()=>{
+    const s=spins[i%spins.length];
+    document.getElementById("ascii-face").textContent=face(B0,A0,`  (${s})     (${s})     `,M[0]); i++;
+    if(i>=spins.length){clearInterval(iv);document.getElementById("ascii-face").textContent=emotionFace(0);animating=false;setLabel("0 DEFAULT");}
+  },100);
+}
+function doF() {
+  if (animating) return; playStatic(); setLabel("F FLICKER");
+  const orig=emotionFace(0); animating=true; let i=0;
+  const iv=setInterval(()=>{
+    if(i%2===0){let o="";for(const ch of orig){if(ch==="\n"){o+="\n";continue;}o+=Math.random()<0.4?GLYPHS[Math.floor(Math.random()*GLYPHS.length)]:ch;}document.getElementById("ascii-face").textContent=o;}
+    else document.getElementById("ascii-face").textContent=orig;
+    i++;
+    if(i>=8){document.getElementById("ascii-face").textContent=orig;clearInterval(iv);animating=false;setLabel("0 DEFAULT");}
+  },70);
+}
+function doG() {
+  if (animating) return; playLow(); setLabel("G GLARE");
+  scrambleTo(face("  \\__      __/   ",A0,P0,M[5]),
+    ()=>setTimeout(()=>scrambleTo(emotionFace(0),()=>setLabel("0 DEFAULT")),900));
+}
+function doH() {
+  if (animating) return; playChime(); setLabel("H HAPPY");
+  scrambleTo(face(B0,A0,P0,"   \\________/     "),
+    ()=>setTimeout(()=>scrambleTo(emotionFace(0),()=>setLabel("0 DEFAULT")),1000));
+}
+function doJ() {
+  if (animating) return; playAlarm(); setLabel("J JAB");
+  const orig=emotionFace(0);
+  const left =face(B0," "+A0.slice(0,-1)," "+P0.slice(0,-1)," "+M[0].slice(0,-1));
+  const right=face(B0,A0.slice(1)+" ",P0.slice(1)+" ",M[0].slice(1)+" ");
+  animating=true; const seq=[left,right,left,right,left,orig]; let i=0;
+  const iv=setInterval(()=>{document.getElementById("ascii-face").textContent=seq[i];i++;
+    if(i>=seq.length){clearInterval(iv);animating=false;setLabel("0 DEFAULT");}},80);
+}
+function doK() {
+  if (animating) return; playSweepUp(); setLabel("K KABOOM");
+  const frames=[
+    face(B0,A0,"  (o)     (o)     ",M[0]),
+    face(B0,A0,"  (O)     (O)     ",M[6]),
+    face(" __          __   ","/    \\    /    \\  "," (O)      (O)    ",M[6]),
+    face("__            __  ","/     \\  /     \\ "," (O)      (O)    ",M[6]),
+    face(B0,A0,P0,M[0]),
+  ];
+  animating=true; let i=0;
+  const iv=setInterval(()=>{document.getElementById("ascii-face").textContent=frames[i];i++;
+    if(i>=frames.length){clearInterval(iv);animating=false;setLabel("0 DEFAULT");}},130);
 }
 
+// ── Controls ──────────────────────────────────────────────────────────────────
 function goEmotion(n) {
-  if (n===1) { doWink(); return; }
+  if (n===1){doWink();return;}
   if (animating) return;
-  playAction();
-  setLabel(E[n].name);
-  scrambleTo(emotionFace(n));
+  playAction(); setLabel(E[n].name); scrambleTo(emotionFace(n));
 }
 function cycleEyes()  { if(animating)return; playClick(); state.ei=(state.ei+1)%EYES.length; scrambleTo(presetFace(state)); }
 function cycleMouth() { if(animating)return; playClick(); state.mi=(state.mi+1)%M.length;    scrambleTo(presetFace(state)); }
 function applyPreset() {
-  const p = PRESETS[state.pi];
-  state.ei=p.ei; state.mi=p.mi;
-  setLabel(p.name);
-  playAction();
-  scrambleTo(presetFace(state));
+  const p=PRESETS[state.pi]; state.ei=p.ei; state.mi=p.mi;
+  setLabel(p.name); playAction(); scrambleTo(presetFace(state));
 }
 function nextPreset() { if(animating)return; state.pi=(state.pi+1)%PRESETS.length; applyPreset(); }
 function prevPreset() { if(animating)return; state.pi=(state.pi-1+PRESETS.length)%PRESETS.length; applyPreset(); }
 function randomFace() {
-  if(animating)return;
-  playSweep();
+  if(animating)return; playSweepUp();
   state.ei=Math.floor(Math.random()*EYES.length);
   state.mi=Math.floor(Math.random()*M.length);
-  setLabel("RANDOM");
-  scrambleTo(presetFace(state));
+  setLabel("RANDOM"); scrambleTo(presetFace(state));
 }
 
 // ── Key handler ───────────────────────────────────────────────────────────────
 document.addEventListener("keydown", e => {
   resetIdle();
-  if (e.key>="0"&&e.key<="9") { goEmotion(parseInt(e.key)); return; }
+  if (e.key>="0"&&e.key<="9"){goEmotion(parseInt(e.key));return;}
   switch(e.key.toLowerCase()) {
+    case "x": doX(); break;
     case "a": doA(); break;
     case "s": doS(); break;
     case "d": doD(); break;
@@ -726,10 +865,9 @@ document.addEventListener("keydown", e => {
 });
 
 document.querySelectorAll(".num-btn").forEach(btn => {
-  btn.addEventListener("click", () => { resetIdle(); goEmotion(parseInt(btn.dataset.n)); });
+  btn.addEventListener("click", ()=>{resetIdle();goEmotion(parseInt(btn.dataset.n));});
 });
 
-// ── Init ──────────────────────────────────────────────────────────────────────
 setFaceInstant(emotionFace(0));
 setLabel(E[0].name);
 resetIdle();
@@ -865,6 +1003,5 @@ resetIdle();
   }, true);
 })();
 
+
 </script>
-</body>
-</html>
