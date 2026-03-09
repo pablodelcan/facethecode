@@ -734,16 +734,6 @@ function renderPixelCanvas(canvas, text) {
 
   const yOff = Math.floor((cellH - 7) / 2); // vertically center glyph in cell
 
-  // Bold level: 0=normal(1px), 1=bold(2px)
-  const bold = (typeof fontWeight !== 'undefined' && fontWeight >= 600) ? 1 : 0;
-
-  function setPixel(x, y) {
-    if (x >= 0 && x < w && y >= 0 && y < h) {
-      const idx = (y * w + x) * 4;
-      px[idx] = px[idx+1] = px[idx+2] = px[idx+3] = 255;
-    }
-  }
-
   for (let li = 0; li < lines.length; li++) {
     const line = lines[li];
     for (let ci = 0; ci < line.length; ci++) {
@@ -756,13 +746,9 @@ function renderPixelCanvas(canvas, text) {
         if (!bits) continue;
         for (let col = 0; col < 5; col++) {
           if (bits & (16 >> col)) {
-            const px_x = ox + col;
-            const px_y = oy + row;
-            setPixel(px_x, px_y);
-            if (bold) {
-              setPixel(px_x + 1, px_y);
-              setPixel(px_x, px_y + 1);
-              setPixel(px_x + 1, px_y + 1);
+            const i = ((oy + row) * w + ox + col) * 4;
+            if (i >= 0 && i < px.length) {
+              px[i] = px[i+1] = px[i+2] = px[i+3] = 255;
             }
           }
         }
