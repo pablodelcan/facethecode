@@ -360,6 +360,30 @@
     <div class="ctrl-label"><span>Glow</span><span class="ctrl-val" id="cv-glow">100</span></div>
     <input type="range" id="cr-glow" min="0" max="200" value="100" step="10">
   </div>
+  <div class="ctrl-row">
+    <div class="ctrl-label"><span>Eyes X</span><span class="ctrl-val" id="cv-eyex">0</span></div>
+    <input type="range" id="cr-eyex" min="-10" max="10" value="0" step="1">
+  </div>
+  <div class="ctrl-row">
+    <div class="ctrl-label"><span>Eyes Y</span><span class="ctrl-val" id="cv-eyey">0</span></div>
+    <input type="range" id="cr-eyey" min="-10" max="10" value="0" step="1">
+  </div>
+  <div class="ctrl-row">
+    <div class="ctrl-label"><span>Nose X</span><span class="ctrl-val" id="cv-nosex">0</span></div>
+    <input type="range" id="cr-nosex" min="-10" max="10" value="0" step="1">
+  </div>
+  <div class="ctrl-row">
+    <div class="ctrl-label"><span>Nose Y</span><span class="ctrl-val" id="cv-nosey">0</span></div>
+    <input type="range" id="cr-nosey" min="-10" max="10" value="0" step="1">
+  </div>
+  <div class="ctrl-row">
+    <div class="ctrl-label"><span>Mouth X</span><span class="ctrl-val" id="cv-mouthx">0</span></div>
+    <input type="range" id="cr-mouthx" min="-10" max="10" value="0" step="1">
+  </div>
+  <div class="ctrl-row">
+    <div class="ctrl-label"><span>Mouth Y</span><span class="ctrl-val" id="cv-mouthy">0</span></div>
+    <input type="range" id="cr-mouthy" min="-10" max="10" value="0" step="1">
+  </div>
 </div>
 
 <div id="expr-label"></div>
@@ -611,6 +635,9 @@ let fontWeight = 700;
 let lineHeightMul = 1.5;
 let glowPct = 100;
 const PIXEL_FONT_SIZE = 10; // kept for slider compat
+let eyeOfsX = 0, eyeOfsY = 0;
+let noseOfsX = 0, noseOfsY = 0;
+let mouthOfsX = 0, mouthOfsY = 0;
 
 // 5x7 bitmap font — each char = 7 rows, each row = 5-bit pattern (MSB=left)
 const _F = {};
@@ -723,8 +750,9 @@ function renderPixelCanvas(canvas, text) {
   const lhm = (typeof lineHeightMul !== 'undefined') ? lineHeightMul : 1.5;
   const cellH = Math.round(CHAR_H_BASE * lhm);
   const maxCols = Math.max(...lines.map(l => l.length));
-  const w = maxCols * CHAR_W + 2;  // +2 for bold overflow
-  const h = lines.length * cellH + 2;
+  const pad = 20; // padding for negative offsets
+  const w = maxCols * CHAR_W + pad * 2;
+  const h = lines.length * cellH + pad * 2;
 
   canvas.width = w || 1;
   canvas.height = h || 1;
@@ -734,20 +762,31 @@ function renderPixelCanvas(canvas, text) {
 
   const yOff = Math.floor((cellH - 7) / 2); // vertically center glyph in cell
 
+  // Per-section pixel offsets: lines 0-2=eyes, 4-5=nose, 7=mouth
+  function sectionOfs(li) {
+    if (li <= 2) return { x: eyeOfsX, y: eyeOfsY };
+    if (li === 4 || li === 5) return { x: noseOfsX, y: noseOfsY };
+    if (li >= 7) return { x: mouthOfsX, y: mouthOfsY };
+    return { x: 0, y: 0 };
+  }
+
   for (let li = 0; li < lines.length; li++) {
     const line = lines[li];
+    const ofs = sectionOfs(li);
     for (let ci = 0; ci < line.length; ci++) {
       const glyph = _F[line[ci]];
       if (!glyph) continue;
-      const ox = ci * CHAR_W;
-      const oy = li * cellH + yOff;
+      const ox = ci * CHAR_W + pad + ofs.x;
+      const oy = li * cellH + yOff + pad + ofs.y;
       for (let row = 0; row < 7; row++) {
         const bits = glyph[row];
         if (!bits) continue;
         for (let col = 0; col < 5; col++) {
           if (bits & (16 >> col)) {
-            const i = ((oy + row) * w + ox + col) * 4;
-            if (i >= 0 && i < px.length) {
+            const px_x = ox + col;
+            const px_y = oy + row;
+            if (px_x >= 0 && px_x < w && px_y >= 0 && px_y < h) {
+              const i = (px_y * w + px_x) * 4;
               px[i] = px[i+1] = px[i+2] = px[i+3] = 255;
             }
           }
@@ -1308,6 +1347,23 @@ document.getElementById('cr-glow').addEventListener('input', function() {
   faceCanvas.style.filter = scale > 0
     ? `drop-shadow(0 0 ${3*scale}px rgba(255,255,255,${0.7*scale})) drop-shadow(0 0 ${7*scale}px rgba(255,255,255,${0.15*scale}))`
     : 'none';
+});
+
+// Per-part position sliders
+['eyex','eyey','nosex','nosey','mouthx','mouthy'].forEach(id => {
+  document.getElementById('cr-' + id).addEventListener('input', function() {
+    document.getElementById('cv-' + id).textContent = this.value;
+    const v = parseInt(this.value);
+    switch(id) {
+      case 'eyex': eyeOfsX = v; break;
+      case 'eyey': eyeOfsY = v; break;
+      case 'nosex': noseOfsX = v; break;
+      case 'nosey': noseOfsY = v; break;
+      case 'mouthx': mouthOfsX = v; break;
+      case 'mouthy': mouthOfsY = v; break;
+    }
+    rerenderFace();
+  });
 });
 
 setFaceInstant(emotionFace(0));
