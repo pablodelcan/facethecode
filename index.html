@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <title>ASCII Face</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -16,9 +16,11 @@
     align-items: center;
     justify-content: center;
     min-height: 100vh;
-    font-family: monospace;
+    font-family: 'Press Start 2P', monospace;
     color: #fff;
     overflow: hidden;
+    -webkit-font-smoothing: none;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   #stage {
@@ -36,11 +38,11 @@
 
   #face-overlay {
     position: absolute;
-    top: 22%;
+    top: 20%;
     left: 50%;
     transform: translateX(-50%);
     width: 36%;
-    aspect-ratio: 1 / 1.2;
+    aspect-ratio: 1 / 1.35;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -67,17 +69,32 @@
   }
 
   #ascii-face {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: clamp(9px, 1.8vw, 20px);
-    color: #ffffff;
-    text-align: left;
-    line-height: 1.7;
-    white-space: pre;
-    letter-spacing: 0.05em;
-    user-select: none;
+    display: none;
+  }
+
+  #face-canvas {
     position: relative;
     z-index: 2;
-    animation: glow-pulse 3s ease-in-out infinite;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    animation: glow-pulse-canvas 3s ease-in-out infinite;
+    user-select: none;
+    width: 90%;
+    height: auto;
+  }
+
+  @keyframes glow-pulse-canvas {
+    0%   { filter: drop-shadow(0 0 3px rgba(255,255,255,0.7)) drop-shadow(0 0 7px rgba(255,255,255,0.15)); }
+    50%  { filter: drop-shadow(0 0 5px rgba(255,255,255,0.9)) drop-shadow(0 0 12px rgba(255,255,255,0.25)); }
+    100% { filter: drop-shadow(0 0 3px rgba(255,255,255,0.7)) drop-shadow(0 0 7px rgba(255,255,255,0.15)); }
+  }
+
+  #pw-canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    animation: glow-pulse-canvas 3s ease-in-out infinite;
+    width: clamp(200px, 40vw, 400px);
+    height: auto;
   }
 
   @keyframes glow-pulse {
@@ -104,9 +121,10 @@
     border: 1px solid rgba(255,255,255,0.15);
     border-radius: 4px;
     padding: 4px 10px;
-    font-size: 11px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
     color: #aaa;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.02em;
   }
   .key-hint span {
     color: #fff;
@@ -118,9 +136,10 @@
     top: 16px;
     left: 50%;
     transform: translateX(-50%);
-    font-size: 12px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
     color: #555;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
   }
 
@@ -136,13 +155,13 @@
     border: 1px solid rgba(255,255,255,0.2);
     border-radius: 3px;
     color: #fff;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 13px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
     width: 32px;
     height: 32px;
     cursor: pointer;
     transition: background 0.15s, border-color 0.15s, text-shadow 0.15s;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.02em;
   }
   .num-btn:hover {
     background: rgba(255,255,255,0.14);
@@ -174,14 +193,7 @@
   }
 
   #password-screen pre {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: clamp(8px, 1.4vw, 16px);
-    color: #fff;
-    line-height: 1.7;
-    white-space: pre;
-    letter-spacing: 0.05em;
-    text-align: left;
-    animation: glow-pulse 3s ease-in-out infinite;
+    display: none;
   }
 
   #pw-form {
@@ -196,50 +208,157 @@
     border: none;
     border-bottom: 1px solid rgba(255,255,255,0.35);
     color: #fff;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 16px;
-    letter-spacing: 0.2em;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
     text-align: center;
-    width: 180px;
-    padding: 6px 0;
+    width: 220px;
+    padding: 8px 0;
     outline: none;
     caret-color: #fff;
   }
   #pw-input::placeholder { color: rgba(255,255,255,0.2); letter-spacing: 0.1em; }
 
   #pw-error {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 11px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
     color: rgba(255,255,255,0.45);
-    letter-spacing: 0.15em;
+    letter-spacing: 0.08em;
     height: 16px;
     text-transform: uppercase;
   }
 
   #pw-label {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 11px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
     color: rgba(255,255,255,0.3);
-    letter-spacing: 0.2em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
+  }
+
+  /* ── Controls Panel ──────────────────────────────────── */
+  #ctrl-toggle {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    z-index: 900;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 4px;
+    color: #888;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    padding: 6px 10px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  #ctrl-toggle:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+  #controls {
+    position: fixed;
+    top: 42px;
+    right: 12px;
+    z-index: 900;
+    background: rgba(0,0,0,0.88);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    padding: 14px 16px;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 230px;
+    backdrop-filter: blur(8px);
+  }
+  #controls.open { display: flex; }
+
+  .ctrl-row {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .ctrl-label {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 6px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .ctrl-val { color: #fff; }
+  .ctrl-row input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  .ctrl-row input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 10px;
+    height: 10px;
+    background: #fff;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .ctrl-row input[type="range"]::-moz-range-thumb {
+    width: 10px;
+    height: 10px;
+    background: #fff;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
   }
 </style>
 </head>
 <body>
 
 <div id="password-screen">
-  <pre id="pw-face">   __      __     
-  /  \    /  \    
-  (@)     (@)     
-        
+  <pre id="pw-face">  ^^      ^^
+
+  (^)     (^)
+
         /
        /_
-        
-   <//***X<//>   </pre>
+
+    &lt;**//**&gt;      </pre>
+  <canvas id="pw-canvas"></canvas>
   <div id="pw-form">
     <div id="pw-label">access code</div>
     <input id="pw-input" type="password" placeholder="_ _ _ _ _ _ _" autocomplete="off" autofocus />
     <div id="pw-error"></div>
+  </div>
+</div>
+
+<button id="ctrl-toggle">[+]</button>
+<div id="controls">
+  <div class="ctrl-row">
+    <div class="ctrl-label"><span>Size</span><span class="ctrl-val" id="cv-size">36</span></div>
+    <input type="range" id="cr-size" min="15" max="60" value="36" step="1">
+  </div>
+  <div class="ctrl-row">
+    <div class="ctrl-label"><span>Y pos</span><span class="ctrl-val" id="cv-ypos">20</span></div>
+    <input type="range" id="cr-ypos" min="0" max="60" value="20" step="1">
+  </div>
+  <div class="ctrl-row">
+    <div class="ctrl-label"><span>X pos</span><span class="ctrl-val" id="cv-xpos">50</span></div>
+    <input type="range" id="cr-xpos" min="20" max="80" value="50" step="1">
+  </div>
+  <div class="ctrl-row">
+    <div class="ctrl-label"><span>Boldness</span><span class="ctrl-val" id="cv-bold">700</span></div>
+    <input type="range" id="cr-bold" min="100" max="900" value="700" step="100">
+  </div>
+  <div class="ctrl-row">
+    <div class="ctrl-label"><span>Line height</span><span class="ctrl-val" id="cv-lh">1.5</span></div>
+    <input type="range" id="cr-lh" min="1.0" max="2.5" value="1.5" step="0.1">
+  </div>
+  <div class="ctrl-row">
+    <div class="ctrl-label"><span>Glow</span><span class="ctrl-val" id="cv-glow">100</span></div>
+    <input type="range" id="cr-glow" min="0" max="200" value="100" step="10">
   </div>
 </div>
 
@@ -250,6 +369,7 @@
   <div id="face-overlay">
     <div id="face-glow"></div>
     <div id="ascii-face"></div>
+    <canvas id="face-canvas"></canvas>
   </div>
 </div>
 
@@ -293,7 +413,7 @@ const P0 = "  (@)     (@)     ";
 const N0 = "        /\n       /_";
 
 const M = [
-  "   <//***X<//>    ",  // 0 original
+  "    <**//**>      ",  // 0 original
   "   \\________/     ",  // 1 smile
   "     /---\\        ",  // 2 frown
   "     /___\\        ",  // 3 sad
@@ -305,7 +425,7 @@ const M = [
 ];
 
 const EYES = [
-  [B0, A0, P0],
+  ["  ^^      ^^      ", "                  ", "  (^)     (^)     "],
   ["   __      __     ", "  ---     ---     ", "   -       -      "],
   ["  \\__      __/    ", A0, P0],
   [B0, A0, "  (o)     (o)     "],
@@ -318,7 +438,7 @@ const EYES = [
 ];
 
 const E = [
-  { name:"0 DEFAULT",   brow:B0,                   arc:A0,                    pupil:P0,                   mouth:M[0] },
+  { name:"0 DEFAULT",   brow:"  ^^      ^^      ",   arc:"                  ",   pupil:"  (^)     (^)     ",   mouth:M[0] },
   { name:"1 WINK",      brow:B0,                   arc:A0,                    pupil:P0,                   mouth:M[1] },
   { name:"2 SMILE",     brow:B0,                   arc:A0,                    pupil:P0,                   mouth:M[1] },
   { name:"3 FROWN",     brow:B0,                   arc:A0,                    pupil:P0,                   mouth:M[2] },
@@ -373,32 +493,41 @@ function beep(freq, type, duration, gain, detune) {
   } catch(e) {}
 }
 
-function playClick()     { beep(880, 'square', 0.04, 0.06); }
-function playAction()    { beep(440, 'sawtooth', 0.12, 0.07); setTimeout(()=>beep(660,'square',0.08,0.05), 40); }
-function playScramble()  { beep(220, 'sawtooth', 0.06, 0.05, 200); }
-function playGlitch()    { 
-  [0,30,60,90].forEach(t => setTimeout(()=>beep(110+Math.random()*440,'sawtooth',0.05,0.04), t));
+function playClick()     { beep(880, 'square', 0.05, 0.12); beep(1320, 'sine', 0.03, 0.06); }
+function playAction()    { beep(440, 'sawtooth', 0.15, 0.14); setTimeout(()=>beep(660,'square',0.1,0.12), 40); setTimeout(()=>beep(880,'sine',0.06,0.06), 80); }
+function playScramble()  { beep(220, 'sawtooth', 0.08, 0.12, 200); beep(330, 'square', 0.05, 0.06, -100); }
+function playGlitch()    {
+  [0,30,60,90,120].forEach(t => setTimeout(()=>beep(110+Math.random()*440,'sawtooth',0.06,0.10), t));
+  setTimeout(()=>beep(80,'square',0.1,0.08), 60);
 }
-function playChime()     { 
-  [523,659,784,1047].forEach((f,i) => setTimeout(()=>beep(f,'sine',0.18,0.06), i*60));
+function playChime()     {
+  [523,659,784,1047].forEach((f,i) => setTimeout(()=>{ beep(f,'sine',0.22,0.12); beep(f*2,'sine',0.15,0.04); }, i*70));
 }
-function playAlarm()     { 
-  [880,440,880,440].forEach((f,i) => setTimeout(()=>beep(f,'square',0.1,0.07), i*80));
+function playAlarm()     {
+  [880,440,880,440,660].forEach((f,i) => setTimeout(()=>beep(f,'square',0.12,0.14), i*75));
 }
-function playLow()       { beep(110, 'sawtooth', 0.2, 0.08); }
+function playLow()       { beep(110, 'sawtooth', 0.25, 0.15); beep(55, 'sine', 0.3, 0.08); }
 function playSweep() {
   try {
     const ctx = getCtx();
     const osc = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
     const vol = ctx.createGain();
+    const vol2 = ctx.createGain();
     osc.connect(vol); vol.connect(ctx.destination);
+    osc2.connect(vol2); vol2.connect(ctx.destination);
     osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(80, ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.3);
-    vol.gain.setValueAtTime(0.07, ctx.currentTime);
-    vol.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.35);
+    vol.gain.setValueAtTime(0.14, ctx.currentTime);
+    vol.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(160, ctx.currentTime);
+    osc2.frequency.exponentialRampToValueAtTime(2400, ctx.currentTime + 0.3);
+    vol2.gain.setValueAtTime(0.06, ctx.currentTime);
+    vol2.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.4);
+    osc2.start(ctx.currentTime); osc2.stop(ctx.currentTime + 0.35);
   } catch(e) {}
 }
 function playDescend() {
@@ -410,28 +539,121 @@ function playDescend() {
     osc.type = 'square';
     osc.frequency.setValueAtTime(600, ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.4);
-    vol.gain.setValueAtTime(0.06, ctx.currentTime);
-    vol.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
+    vol.gain.setValueAtTime(0.12, ctx.currentTime);
+    vol.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.45);
     osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.45);
+    osc.stop(ctx.currentTime + 0.5);
   } catch(e) {}
 }
-function playBoop()      { beep(330, 'sine', 0.15, 0.07); setTimeout(()=>beep(495,'sine',0.12,0.06), 80); }
+function playBoop()      { beep(330, 'sine', 0.18, 0.14); setTimeout(()=>beep(495,'sine',0.14,0.12), 80); }
 function playStatic()    {
   try {
     const ctx = getCtx();
-    const buf = ctx.createBuffer(1, ctx.sampleRate*0.15, ctx.sampleRate);
+    const buf = ctx.createBuffer(1, ctx.sampleRate*0.2, ctx.sampleRate);
     const d = buf.getChannelData(0);
-    for (let i=0; i<d.length; i++) d[i] = (Math.random()*2-1)*0.15;
+    for (let i=0; i<d.length; i++) d[i] = (Math.random()*2-1)*0.25;
     const src = ctx.createBufferSource();
     src.buffer = buf;
     const vol = ctx.createGain();
-    vol.gain.setValueAtTime(0.3, ctx.currentTime);
-    vol.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+0.15);
+    vol.gain.setValueAtTime(0.5, ctx.currentTime);
+    vol.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+0.2);
     src.connect(vol); vol.connect(ctx.destination);
     src.start();
   } catch(e) {}
 }
+
+// ── Ambient drone ─────────────────────────────────────────────────────────────
+let ambientStarted = false;
+let ambientOsc1, ambientOsc2, ambientGain;
+function startAmbient() {
+  if (ambientStarted) return;
+  ambientStarted = true;
+  try {
+    const ctx = getCtx();
+    ambientGain = ctx.createGain();
+    ambientGain.gain.setValueAtTime(0, ctx.currentTime);
+    ambientGain.gain.linearRampToValueAtTime(0.025, ctx.currentTime + 2);
+    ambientGain.connect(ctx.destination);
+    ambientOsc1 = ctx.createOscillator();
+    ambientOsc1.type = 'sine';
+    ambientOsc1.frequency.setValueAtTime(55, ctx.currentTime);
+    ambientOsc1.connect(ambientGain);
+    ambientOsc1.start();
+    ambientOsc2 = ctx.createOscillator();
+    ambientOsc2.type = 'sine';
+    ambientOsc2.frequency.setValueAtTime(82.5, ctx.currentTime);
+    const g2 = ctx.createGain();
+    g2.gain.setValueAtTime(0.6, ctx.currentTime);
+    ambientOsc2.connect(g2);
+    g2.connect(ambientGain);
+    ambientOsc2.start();
+    // LFO for subtle pulsing
+    const lfo = ctx.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.setValueAtTime(0.15, ctx.currentTime);
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.setValueAtTime(0.012, ctx.currentTime);
+    lfo.connect(lfoGain);
+    lfoGain.connect(ambientGain.gain);
+    lfo.start();
+  } catch(e) {}
+}
+
+// ── Typing sound for password input ───────────────────────────────────────────
+function playKeyType() {
+  const freq = 600 + Math.random() * 400;
+  beep(freq, 'square', 0.03, 0.10);
+}
+
+// ── Pixel canvas renderer ─────────────────────────────────────────────────────
+let fontWeight = 700;
+let lineHeightMul = 1.5;
+let glowPct = 100;
+const PIXEL_FONT_SIZE = 10;
+
+function renderPixelCanvas(canvas, text) {
+  const ctx = canvas.getContext('2d');
+  const lines = text.split('\n');
+  const fw = (typeof fontWeight !== 'undefined') ? fontWeight : 700;
+  const lhm = (typeof lineHeightMul !== 'undefined') ? lineHeightMul : 1.5;
+  const fontStr = `${fw} ${PIXEL_FONT_SIZE}px monospace`;
+  ctx.font = fontStr;
+  const metrics = ctx.measureText('M');
+  const charW = metrics.width;
+  const lineH = PIXEL_FONT_SIZE * lhm;
+
+  const maxCols = Math.max(...lines.map(l => l.length));
+  const w = Math.ceil(maxCols * charW) + 2;
+  const h = Math.ceil(lines.length * lineH) + 2;
+
+  canvas.width = w;
+  canvas.height = h;
+
+  ctx.font = fontStr;
+  ctx.fillStyle = '#ffffff';
+  ctx.textBaseline = 'top';
+
+  lines.forEach((line, i) => {
+    ctx.fillText(line, 0, i * lineH + 1);
+  });
+}
+
+// Auto-sync: watch #ascii-face text changes and render to canvas
+const faceCanvas = document.getElementById('face-canvas');
+const faceDiv = document.getElementById('ascii-face');
+const faceObserver = new MutationObserver(() => {
+  renderPixelCanvas(faceCanvas, faceDiv.textContent);
+});
+faceObserver.observe(faceDiv, { childList: true, characterData: true, subtree: true });
+
+// Password screen face canvas
+const pwCanvas = document.getElementById('pw-canvas');
+const pwFaceEl = document.getElementById('pw-face');
+function syncPwCanvas() { renderPixelCanvas(pwCanvas, pwFaceEl.textContent); }
+const pwObserver = new MutationObserver(syncPwCanvas);
+pwObserver.observe(pwFaceEl, { childList: true, characterData: true, subtree: true });
+// Initial render of password face
+syncPwCanvas();
 
 // ── Build face ────────────────────────────────────────────────────────────────
 function face(brow, arc, pupil, mouth) {
@@ -705,6 +927,7 @@ function randomFace() {
 
 // ── Key handler ───────────────────────────────────────────────────────────────
 document.addEventListener("keydown", e => {
+  startAmbient();
   resetIdle();
   if (e.key>="0"&&e.key<="9") { goEmotion(parseInt(e.key)); return; }
   switch(e.key.toLowerCase()) {
@@ -726,7 +949,60 @@ document.addEventListener("keydown", e => {
 });
 
 document.querySelectorAll(".num-btn").forEach(btn => {
-  btn.addEventListener("click", () => { resetIdle(); goEmotion(parseInt(btn.dataset.n)); });
+  btn.addEventListener("click", () => { startAmbient(); resetIdle(); goEmotion(parseInt(btn.dataset.n)); });
+  btn.addEventListener("mouseenter", () => { beep(1200 + parseInt(btn.dataset.n)*80, 'sine', 0.02, 0.05); });
+});
+
+// ── Controls panel ────────────────────────────────────────────────────────────
+document.getElementById('ctrl-toggle').addEventListener('click', () => {
+  const p = document.getElementById('controls');
+  p.classList.toggle('open');
+  document.getElementById('ctrl-toggle').textContent = p.classList.contains('open') ? '[-]' : '[+]';
+});
+
+// prevent key events from triggering face animations when interacting with sliders
+document.getElementById('controls').addEventListener('keydown', e => e.stopPropagation());
+
+function rerenderFace() {
+  renderPixelCanvas(faceCanvas, faceDiv.textContent);
+}
+
+document.getElementById('cr-size').addEventListener('input', function() {
+  document.getElementById('cv-size').textContent = this.value;
+  document.getElementById('face-overlay').style.width = this.value + '%';
+});
+
+document.getElementById('cr-ypos').addEventListener('input', function() {
+  document.getElementById('cv-ypos').textContent = this.value;
+  document.getElementById('face-overlay').style.top = this.value + '%';
+});
+
+document.getElementById('cr-xpos').addEventListener('input', function() {
+  document.getElementById('cv-xpos').textContent = this.value;
+  document.getElementById('face-overlay').style.left = this.value + '%';
+});
+
+document.getElementById('cr-bold').addEventListener('input', function() {
+  document.getElementById('cv-bold').textContent = this.value;
+  fontWeight = parseInt(this.value);
+  rerenderFace();
+});
+
+document.getElementById('cr-lh').addEventListener('input', function() {
+  document.getElementById('cv-lh').textContent = this.value;
+  lineHeightMul = parseFloat(this.value);
+  rerenderFace();
+});
+
+document.getElementById('cr-glow').addEventListener('input', function() {
+  document.getElementById('cv-glow').textContent = this.value;
+  glowPct = parseInt(this.value);
+  const scale = glowPct / 100;
+  document.getElementById('face-glow').style.opacity = scale;
+  faceCanvas.style.animationName = scale > 0 ? 'glow-pulse-canvas' : 'none';
+  faceCanvas.style.filter = scale > 0
+    ? `drop-shadow(0 0 ${3*scale}px rgba(255,255,255,${0.7*scale})) drop-shadow(0 0 ${7*scale}px rgba(255,255,255,${0.15*scale}))`
+    : 'none';
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -747,14 +1023,14 @@ resetIdle();
   // Animate the lock face glow on the password screen
   let glitchIv = null;
   const lockFace = [
-    "   __      __     ",
-    "  /  \\    /  \\    ",
-    "  (@)     (@)     ",
+    "  ^^      ^^      ",
+    "                  ",
+    "  (^)     (^)     ",
     "        ",
     "        /",
     "       /_",
     "        ",
-    "   <//***X<//>   "
+    "    <**//**>      "
   ].join('\n');
 
   function scrambleLockFace(target) {
@@ -783,8 +1059,8 @@ resetIdle();
 
   // Wrong face — X eyes
   const wrongFace = [
-    "   __      __     ",
-    "  /  \\    /  \\    ",
+    "  ^^      ^^      ",
+    "                  ",
     "  (X)     (X)     ",
     "        ",
     "        /",
@@ -795,9 +1071,9 @@ resetIdle();
 
   // Correct face — smile
   const correctFace = [
-    "   __      __     ",
-    "  /  \\    /  \\    ",
-    "  (@)     (@)     ",
+    "  ^^      ^^      ",
+    "                  ",
+    "  (^)     (^)     ",
     "        ",
     "        /",
     "       /_",
@@ -851,9 +1127,12 @@ resetIdle();
   }
 
   input.addEventListener('keydown', (e) => {
+    startAmbient();
     if (e.key === 'Enter') {
       if (input.value === CORRECT) unlock();
       else deny();
+    } else if (e.key.length === 1) {
+      playKeyType();
     }
   });
 
