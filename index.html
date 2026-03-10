@@ -417,6 +417,14 @@
     <input type="range" id="cr-browy" min="-10" max="10" value="0" step="1">
   </div>
   <div class="ctrl-row">
+    <div class="ctrl-label"><span>Arc X</span><span class="ctrl-val" id="cv-arcx">-1</span></div>
+    <input type="range" id="cr-arcx" min="-10" max="10" value="-1" step="1">
+  </div>
+  <div class="ctrl-row">
+    <div class="ctrl-label"><span>Arc Y</span><span class="ctrl-val" id="cv-arcy">0</span></div>
+    <input type="range" id="cr-arcy" min="-10" max="10" value="0" step="1">
+  </div>
+  <div class="ctrl-row">
     <div class="ctrl-label"><span>Eyes X</span><span class="ctrl-val" id="cv-eyex">-1</span></div>
     <input type="range" id="cr-eyex" min="-10" max="10" value="-1" step="1">
   </div>
@@ -711,6 +719,7 @@ let lineHeightMul = 1.0;
 let glowPct = 120;
 const PIXEL_FONT_SIZE = 10; // kept for slider compat
 let browOfsX = -1, browOfsY = 0;
+let arcOfsX = -1, arcOfsY = 0;
 let eyeOfsX = -1, eyeOfsY = 0;
 let noseOfsX = -4, noseOfsY = -1;
 let mouthOfsX = -2, mouthOfsY = 7;
@@ -833,7 +842,7 @@ function renderPixelCanvas(canvas, text) {
   const lhm = (typeof lineHeightMul !== 'undefined') ? lineHeightMul : 1.5;
   const cellH = Math.round(CHAR_H_BASE * lhm);
   const maxCols = Math.max(...lines.map(l => l.length));
-  const maxOfsAbs = Math.max(Math.abs(browOfsX), Math.abs(browOfsY), Math.abs(eyeOfsX), Math.abs(eyeOfsY), Math.abs(noseOfsX), Math.abs(noseOfsY), Math.abs(mouthOfsX), Math.abs(mouthOfsY));
+  const maxOfsAbs = Math.max(Math.abs(browOfsX), Math.abs(browOfsY), Math.abs(arcOfsX), Math.abs(arcOfsY), Math.abs(eyeOfsX), Math.abs(eyeOfsY), Math.abs(noseOfsX), Math.abs(noseOfsY), Math.abs(mouthOfsX), Math.abs(mouthOfsY));
   const pad = Math.max(20, maxOfsAbs + 10);
   const w = maxCols * CHAR_W + pad * 2;
   const h = lines.length * cellH + pad * 2;
@@ -849,7 +858,8 @@ function renderPixelCanvas(canvas, text) {
   // Per-section pixel offsets: line 0=brow, 1-2=eyes, 4-5=nose, 6+=mouth
   function sectionOfs(li) {
     if (li === 0) return { x: browOfsX, y: browOfsY };
-    if (li <= 2) return { x: eyeOfsX, y: eyeOfsY };
+    if (li === 1) return { x: arcOfsX, y: arcOfsY };
+    if (li === 2) return { x: eyeOfsX, y: eyeOfsY };
     if (li === 4 || li === 5) return { x: noseOfsX, y: noseOfsY };
     if (li >= 6) return { x: mouthOfsX, y: mouthOfsY };
     return { x: 0, y: 0 };
@@ -921,8 +931,8 @@ function renderDotCanvas(canvas, text) {
   const lhm     = (typeof lineHeightMul !== 'undefined') ? lineHeightMul : 1.0;
   const cellH   = Math.round(charHBase * lhm);
   const maxCols = Math.max(...lines.map(l => l.length));
-  const maxOfsX = Math.max(Math.abs(browOfsX), Math.abs(eyeOfsX), Math.abs(noseOfsX), Math.abs(mouthOfsX)) * DOT_PITCH;
-  const maxOfsY = Math.max(Math.abs(browOfsY), Math.abs(eyeOfsY), Math.abs(noseOfsY), Math.abs(mouthOfsY)) * DOT_PITCH;
+  const maxOfsX = Math.max(Math.abs(browOfsX), Math.abs(arcOfsX), Math.abs(eyeOfsX), Math.abs(noseOfsX), Math.abs(mouthOfsX)) * DOT_PITCH;
+  const maxOfsY = Math.max(Math.abs(browOfsY), Math.abs(arcOfsY), Math.abs(eyeOfsY), Math.abs(noseOfsY), Math.abs(mouthOfsY)) * DOT_PITCH;
   const pad     = Math.max(Math.round(DOT_PITCH * 3), maxOfsX + DOT_PITCH * 2, maxOfsY + DOT_PITCH * 2);
   const w       = maxCols * charW + pad * 2;
   const h       = lines.length * cellH + pad * 2;
@@ -937,7 +947,8 @@ function renderDotCanvas(canvas, text) {
   function sectionOfs(li) {
     const s = DOT_PITCH;
     if (li === 0) return { x: browOfsX * s, y: browOfsY * s };
-    if (li <= 2) return { x: eyeOfsX * s, y: eyeOfsY * s };
+    if (li === 1) return { x: arcOfsX * s, y: arcOfsY * s };
+    if (li === 2) return { x: eyeOfsX * s, y: eyeOfsY * s };
     if (li === 4 || li === 5) return { x: noseOfsX * s, y: noseOfsY * s };
     if (li >= 6) return { x: mouthOfsX * s, y: mouthOfsY * s };
     return { x: 0, y: 0 };
@@ -1575,13 +1586,15 @@ document.getElementById('cr-glow').addEventListener('input', function() {
 });
 
 // Per-part position sliders
-['browx','browy','eyex','eyey','nosex','nosey','mouthx','mouthy'].forEach(id => {
+['browx','browy','arcx','arcy','eyex','eyey','nosex','nosey','mouthx','mouthy'].forEach(id => {
   document.getElementById('cr-' + id).addEventListener('input', function() {
     document.getElementById('cv-' + id).textContent = this.value;
     const v = parseInt(this.value);
     switch(id) {
       case 'browx': browOfsX = v; break;
       case 'browy': browOfsY = v; break;
+      case 'arcx': arcOfsX = v; break;
+      case 'arcy': arcOfsY = v; break;
       case 'eyex': eyeOfsX = v; break;
       case 'eyey': eyeOfsY = v; break;
       case 'nosex': noseOfsX = v; break;
