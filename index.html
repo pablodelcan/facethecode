@@ -254,6 +254,26 @@
   }
   #ctrl-toggle:hover { background: rgba(255,255,255,0.15); color: #fff; }
 
+  #hud-toggle {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 900;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 4px;
+    color: #888;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    padding: 6px 10px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  #hud-toggle:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+  #hud.hidden { display: none !important; }
+  #expr-label.hidden { display: none !important; }
+
   #controls {
     position: fixed;
     top: 42px;
@@ -349,8 +369,8 @@
     <input type="range" id="cr-xpos" min="20" max="80" value="50" step="1">
   </div>
   <div class="ctrl-row">
-    <div class="ctrl-label"><span>Boldness</span><span class="ctrl-val" id="cv-bold">700</span></div>
-    <input type="range" id="cr-bold" min="100" max="900" value="700" step="100">
+    <div class="ctrl-label"><span>Boldness</span><span class="ctrl-val" id="cv-bold">400</span></div>
+    <input type="range" id="cr-bold" min="100" max="900" value="400" step="100">
   </div>
   <div class="ctrl-row">
     <div class="ctrl-label"><span>Line height</span><span class="ctrl-val" id="cv-lh">1.5</span></div>
@@ -384,8 +404,21 @@
     <div class="ctrl-label"><span>Mouth Y</span><span class="ctrl-val" id="cv-mouthy">0</span></div>
     <input type="range" id="cr-mouthy" min="-10" max="10" value="0" step="1">
   </div>
+  <div class="ctrl-row">
+    <div class="ctrl-label"><span>Stretch X</span><span class="ctrl-val" id="cv-stretchx">1.0</span></div>
+    <input type="range" id="cr-stretchx" min="0.5" max="3.0" value="1.0" step="0.1">
+  </div>
+  <div class="ctrl-row">
+    <div class="ctrl-label"><span>Stretch Y</span><span class="ctrl-val" id="cv-stretchy">1.0</span></div>
+    <input type="range" id="cr-stretchy" min="0.5" max="3.0" value="1.0" step="0.1">
+  </div>
+  <div class="ctrl-row">
+    <div class="ctrl-label"><span>Image</span><span class="ctrl-val" id="cv-image">ON</span></div>
+    <input type="range" id="cr-image" min="0" max="1" value="1" step="1">
+  </div>
 </div>
 
+<button id="hud-toggle">[?]</button>
 <div id="expr-label"></div>
 
 <div id="stage">
@@ -631,13 +664,15 @@ function playKeyType() {
 }
 
 // ── Bitmap pixel font renderer ───────────────────────────────────────────────
-let fontWeight = 700;
+let fontWeight = 400;
 let lineHeightMul = 1.5;
 let glowPct = 100;
 const PIXEL_FONT_SIZE = 10; // kept for slider compat
 let eyeOfsX = 0, eyeOfsY = 0;
 let noseOfsX = 0, noseOfsY = 0;
 let mouthOfsX = 0, mouthOfsY = 0;
+let stretchX = 1, stretchY = 1;  // character stretch multipliers
+let showImage = true;             // image on/off toggle
 
 // 5x7 bitmap font — each char = 7 rows, each row = 5-bit pattern (MSB=left)
 const _F = {};
@@ -742,10 +777,14 @@ const _F = {};
   for (const ch in d) _F[ch] = d[ch];
 })();
 
-const CHAR_W = 6; // 5px glyph + 1px gap
-const CHAR_H_BASE = 8; // 7px glyph + 1px gap
-
 function renderPixelCanvas(canvas, text) {
+  const sx = (typeof stretchX !== 'undefined') ? stretchX : 1;
+  const sy = (typeof stretchY !== 'undefined') ? stretchY : 1;
+  const CHAR_W = Math.round(6 * sx); // (5px glyph + 1px gap) * stretchX
+  const CHAR_H_BASE = Math.round(8 * sy); // (7px glyph + 1px gap) * stretchY
+  const glyphW = Math.max(1, Math.round(sx));  // pixels per glyph dot horiz
+  const glyphH = Math.max(1, Math.round(sy));  // pixels per glyph dot vert
+
   const lines = text.split('\n');
   const lhm = (typeof lineHeightMul !== 'undefined') ? lineHeightMul : 1.5;
   const cellH = Math.round(CHAR_H_BASE * lhm);
@@ -760,14 +799,34 @@ function renderPixelCanvas(canvas, text) {
   const img = ctx.createImageData(w, h);
   const px = img.data;
 
-  const yOff = Math.floor((cellH - 7) / 2); // vertically center glyph in cell
+  const yOff = Math.floor((cellH - Math.round(7 * sy)) / 2); // vertically center glyph in cell
 
-  // Per-section pixel offsets: lines 0-2=eyes, 4-5=nose, 7=mouth
+  // Per-section pixel offsets: lines 0-2=eyes, 4-5=nose, 6+=mouth
   function sectionOfs(li) {
     if (li <= 2) return { x: eyeOfsX, y: eyeOfsY };
     if (li === 4 || li === 5) return { x: noseOfsX, y: noseOfsY };
-    if (li >= 7) return { x: mouthOfsX, y: mouthOfsY };
+    if (li >= 6) return { x: mouthOfsX, y: mouthOfsY };
     return { x: 0, y: 0 };
+  }
+
+  // Boldness: 100-400=thin, 500-600=widen right, 700-800=right+down, 900=all cardinal
+  const fw = (typeof fontWeight !== 'undefined') ? fontWeight : 700;
+  const boldLevel = fw >= 900 ? 3 : fw >= 700 ? 2 : fw >= 500 ? 1 : 0;
+
+  function setPixel(x, y) {
+    if (x >= 0 && x < w && y >= 0 && y < h) {
+      const i = (y * w + x) * 4;
+      px[i] = px[i+1] = px[i+2] = px[i+3] = 255;
+    }
+  }
+
+  // Stamp a stretched dot: fills a glyphW x glyphH rectangle
+  function stampDot(bx, by) {
+    for (let dy = 0; dy < glyphH; dy++) {
+      for (let dx = 0; dx < glyphW; dx++) {
+        setPixel(bx + dx, by + dy);
+      }
+    }
   }
 
   for (let li = 0; li < lines.length; li++) {
@@ -783,11 +842,15 @@ function renderPixelCanvas(canvas, text) {
         if (!bits) continue;
         for (let col = 0; col < 5; col++) {
           if (bits & (16 >> col)) {
-            const px_x = ox + col;
-            const px_y = oy + row;
-            if (px_x >= 0 && px_x < w && px_y >= 0 && px_y < h) {
-              const i = (px_y * w + px_x) * 4;
-              px[i] = px[i+1] = px[i+2] = px[i+3] = 255;
+            const px_x = ox + Math.round(col * sx);
+            const px_y = oy + Math.round(row * sy);
+            stampDot(px_x, px_y);
+            if (boldLevel >= 1) stampDot(px_x + glyphW, px_y);     // widen right
+            if (boldLevel >= 2) stampDot(px_x, px_y + glyphH);     // extend down
+            if (boldLevel >= 3) {                                    // all cardinal
+              stampDot(px_x - glyphW, px_y);
+              stampDot(px_x, px_y - glyphH);
+              stampDot(px_x + glyphW, px_y + glyphH);
             }
           }
         }
@@ -1364,6 +1427,36 @@ document.getElementById('cr-glow').addEventListener('input', function() {
     }
     rerenderFace();
   });
+});
+
+// Stretch sliders
+document.getElementById('cr-stretchx').addEventListener('input', function() {
+  document.getElementById('cv-stretchx').textContent = this.value;
+  stretchX = parseFloat(this.value);
+  rerenderFace();
+});
+document.getElementById('cr-stretchy').addEventListener('input', function() {
+  document.getElementById('cv-stretchy').textContent = this.value;
+  stretchY = parseFloat(this.value);
+  rerenderFace();
+});
+
+// Image on/off toggle
+document.getElementById('cr-image').addEventListener('input', function() {
+  const on = parseInt(this.value) === 1;
+  showImage = on;
+  document.getElementById('cv-image').textContent = on ? 'ON' : 'OFF';
+  document.getElementById('photo').style.visibility = on ? 'visible' : 'hidden';
+  document.getElementById('stage').style.background = on ? 'transparent' : '#000';
+});
+
+// HUD toggle (hide/show number buttons + key hints + expression label)
+document.getElementById('hud-toggle').addEventListener('click', () => {
+  const hud = document.getElementById('hud');
+  const label = document.getElementById('expr-label');
+  hud.classList.toggle('hidden');
+  label.classList.toggle('hidden');
+  document.getElementById('hud-toggle').textContent = hud.classList.contains('hidden') ? '[?]' : '[×]';
 });
 
 setFaceInstant(emotionFace(0));
