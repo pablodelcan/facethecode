@@ -824,7 +824,8 @@ function renderPixelCanvas(canvas, text) {
   const lhm = (typeof lineHeightMul !== 'undefined') ? lineHeightMul : 1.5;
   const cellH = Math.round(CHAR_H_BASE * lhm);
   const maxCols = Math.max(...lines.map(l => l.length));
-  const pad = 20; // padding for negative offsets
+  const maxOfsAbs = Math.max(Math.abs(eyeOfsX), Math.abs(eyeOfsY), Math.abs(noseOfsX), Math.abs(noseOfsY), Math.abs(mouthOfsX), Math.abs(mouthOfsY));
+  const pad = Math.max(20, maxOfsAbs + 10);
   const w = maxCols * CHAR_W + pad * 2;
   const h = lines.length * cellH + pad * 2;
 
@@ -910,7 +911,9 @@ function renderDotCanvas(canvas, text) {
   const lhm     = (typeof lineHeightMul !== 'undefined') ? lineHeightMul : 1.0;
   const cellH   = Math.round(charHBase * lhm);
   const maxCols = Math.max(...lines.map(l => l.length));
-  const pad     = Math.round(DOT_PITCH * 3);
+  const maxOfsX = Math.max(Math.abs(eyeOfsX), Math.abs(noseOfsX), Math.abs(mouthOfsX)) * DOT_PITCH;
+  const maxOfsY = Math.max(Math.abs(eyeOfsY), Math.abs(noseOfsY), Math.abs(mouthOfsY)) * DOT_PITCH;
+  const pad     = Math.max(Math.round(DOT_PITCH * 3), maxOfsX + DOT_PITCH * 2, maxOfsY + DOT_PITCH * 2);
   const w       = maxCols * charW + pad * 2;
   const h       = lines.length * cellH + pad * 2;
 
