@@ -274,6 +274,21 @@
   #hud.hidden { display: none !important; }
   #expr-label.hidden { display: none !important; }
 
+  #face-canvas.dot-mode,
+  #pw-canvas.dot-mode {
+    image-rendering: auto !important;
+    animation: glow-pulse-dot 4s ease-in-out infinite !important;
+    will-change: filter;
+    transform: scale(1.25);
+    transform-origin: center center;
+  }
+
+  @keyframes glow-pulse-dot {
+    0%   { filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 0 5px rgba(200,220,255,0.8)) drop-shadow(0 0 12px rgba(180,200,255,0.35)); }
+    50%  { filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 3px #fff) drop-shadow(0 0 7px rgba(200,220,255,0.9)) drop-shadow(0 0 18px rgba(180,200,255,0.45)); }
+    100% { filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 0 5px rgba(200,220,255,0.8)) drop-shadow(0 0 12px rgba(180,200,255,0.35)); }
+  }
+
   #controls {
     position: fixed;
     top: 42px;
@@ -415,6 +430,10 @@
   <div class="ctrl-row">
     <div class="ctrl-label"><span>Image</span><span class="ctrl-val" id="cv-image">ON</span></div>
     <input type="range" id="cr-image" min="0" max="1" value="1" step="1">
+  </div>
+  <div class="ctrl-row">
+    <div class="ctrl-label"><span>Style</span><span class="ctrl-val" id="cv-style">PX</span></div>
+    <input type="range" id="cr-style" min="0" max="1" value="0" step="1">
   </div>
 </div>
 
@@ -673,6 +692,7 @@ let noseOfsX = -4, noseOfsY = -1;
 let mouthOfsX = -2, mouthOfsY = 7;
 let stretchX = 0.7, stretchY = 0.9;
 let showImage = true;
+let renderMode = 0; // 0=pixel, 1=dot-matrix
 
 // 5x7 bitmap font — each char = 7 rows, each row = 5-bit pattern (MSB=left)
 const _F = {};
@@ -860,18 +880,143 @@ function renderPixelCanvas(canvas, text) {
   ctx.putImageData(img, 0, 0);
 }
 
+// ── Dot-matrix renderer ──────────────────────────────────────────────────────
+function renderDotCanvas(canvas, text) {
+  const sx = (typeof stretchX !== 'undefined') ? stretchX : 1;
+  const sy = (typeof stretchY !== 'undefined') ? stretchY : 1;
+
+  const DOT_PITCH = 7;   // canvas px between dot centers
+  const BASE_R    = 2.6; // base dot radius
+
+  const charW     = Math.round(6 * sx * DOT_PITCH);
+  const charHBase = Math.round(8 * sy * DOT_PITCH);
+
+  const lines   = text.split('\n');
+  const lhm     = (typeof lineHeightMul !== 'undefined') ? lineHeightMul : 1.0;
+  const cellH   = Math.round(charHBase * lhm);
+  const maxCols = Math.max(...lines.map(l => l.length));
+  const pad     = Math.round(DOT_PITCH * 3);
+  const w       = maxCols * charW + pad * 2;
+  const h       = lines.length * cellH + pad * 2;
+
+  canvas.width  = w || 1;
+  canvas.height = h || 1;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+
+  const yOff = Math.floor((cellH - Math.round(7 * sy * DOT_PITCH)) / 2);
+
+  function sectionOfs(li) {
+    const s = DOT_PITCH;
+    if (li <= 2) return { x: eyeOfsX * s, y: eyeOfsY * s };
+    if (li === 4 || li === 5) return { x: noseOfsX * s, y: noseOfsY * s };
+    if (li >= 6) return { x: mouthOfsX * s, y: mouthOfsY * s };
+    return { x: 0, y: 0 };
+  }
+
+  // Boldness → larger dots
+  const fw = (typeof fontWeight !== 'undefined') ? fontWeight : 400;
+  const boldExtra = fw >= 900 ? 1.8 : fw >= 700 ? 1.0 : fw >= 500 ? 0.4 : 0;
+  const dotR = BASE_R + boldExtra;
+
+  // Collect dot positions
+  const dots = [];
+  for (let li = 0; li < lines.length; li++) {
+    const line = lines[li];
+    const ofs = sectionOfs(li);
+    for (let ci = 0; ci < line.length; ci++) {
+      const glyph = _F[line[ci]];
+      if (!glyph) continue;
+      const ox = ci * charW + pad + ofs.x;
+      const oy = li * cellH + yOff + pad + ofs.y;
+      for (let row = 0; row < 7; row++) {
+        const bits = glyph[row];
+        if (!bits) continue;
+        for (let col = 0; col < 5; col++) {
+          if (bits & (16 >> col)) {
+            dots.push(
+              ox + Math.round(col * sx * DOT_PITCH) + Math.round(DOT_PITCH * sx * 0.5),
+              oy + Math.round(row * sy * DOT_PITCH) + Math.round(DOT_PITCH * sy * 0.5)
+            );
+          }
+        }
+      }
+    }
+  }
+
+  // ── Render dot cores (bright white circles) ──
+  const off = document.createElement('canvas');
+  off.width = w; off.height = h;
+  const oCtx = off.getContext('2d');
+  oCtx.fillStyle = '#fff';
+  oCtx.beginPath();
+  for (let i = 0; i < dots.length; i += 2) {
+    oCtx.moveTo(dots[i] + dotR, dots[i + 1]);
+    oCtx.arc(dots[i], dots[i + 1], dotR, 0, Math.PI * 2);
+  }
+  oCtx.fill();
+
+  // ── Render soft halo layer with radial gradients ──
+  const halo = document.createElement('canvas');
+  halo.width = w; halo.height = h;
+  const hCtx = halo.getContext('2d');
+  const haloR = dotR * 3.5;
+  for (let i = 0; i < dots.length; i += 2) {
+    const cx = dots[i], cy = dots[i + 1];
+    const grad = hCtx.createRadialGradient(cx, cy, 0, cx, cy, haloR);
+    grad.addColorStop(0, 'rgba(255,255,255,0.7)');
+    grad.addColorStop(0.25, 'rgba(230,240,255,0.35)');
+    grad.addColorStop(0.6, 'rgba(200,220,255,0.1)');
+    grad.addColorStop(1, 'rgba(180,200,255,0)');
+    hCtx.fillStyle = grad;
+    hCtx.fillRect(cx - haloR, cy - haloR, haloR * 2, haloR * 2);
+  }
+
+  // ── Multi-pass bloom compositing ──
+  const gs = (typeof glowPct !== 'undefined') ? glowPct / 100 : 1;
+
+  // Pass 1: Wide atmospheric glow
+  if (gs > 0) {
+    ctx.filter = 'blur(' + Math.round(14 * gs) + 'px)';
+    ctx.globalAlpha = 0.25 * gs;
+    ctx.drawImage(halo, 0, 0);
+  }
+  // Pass 2: Medium bloom
+  if (gs > 0) {
+    ctx.filter = 'blur(' + Math.round(5 * gs) + 'px)';
+    ctx.globalAlpha = 0.5 * gs;
+    ctx.drawImage(halo, 0, 0);
+  }
+  // Pass 3: Tight bright halo around each dot
+  if (gs > 0) {
+    ctx.filter = 'blur(' + Math.round(2 * gs) + 'px)';
+    ctx.globalAlpha = 0.8;
+    ctx.drawImage(off, 0, 0);
+  }
+  // Pass 4: Sharp bright dot cores
+  ctx.filter = 'none';
+  ctx.globalAlpha = 1.0;
+  ctx.drawImage(off, 0, 0);
+}
+
+// ── Unified renderer dispatch ────────────────────────────────────────────────
+function renderFaceCanvas(canvas, text) {
+  if (renderMode === 1) renderDotCanvas(canvas, text);
+  else renderPixelCanvas(canvas, text);
+}
+
 // Auto-sync: watch #ascii-face text changes and render to canvas
 const faceCanvas = document.getElementById('face-canvas');
 const faceDiv = document.getElementById('ascii-face');
 const faceObserver = new MutationObserver(() => {
-  renderPixelCanvas(faceCanvas, faceDiv.textContent);
+  renderFaceCanvas(faceCanvas, faceDiv.textContent);
 });
 faceObserver.observe(faceDiv, { childList: true, characterData: true, subtree: true });
 
 // Password screen face canvas
 const pwCanvas = document.getElementById('pw-canvas');
 const pwFaceEl = document.getElementById('pw-face');
-function syncPwCanvas() { renderPixelCanvas(pwCanvas, pwFaceEl.textContent); }
+function syncPwCanvas() { renderFaceCanvas(pwCanvas, pwFaceEl.textContent); }
 const pwObserver = new MutationObserver(syncPwCanvas);
 pwObserver.observe(pwFaceEl, { childList: true, characterData: true, subtree: true });
 // Initial render of password face
@@ -1359,7 +1504,7 @@ document.getElementById('ctrl-toggle').addEventListener('click', () => {
 document.getElementById('controls').addEventListener('keydown', e => e.stopPropagation());
 
 function rerenderFace() {
-  renderPixelCanvas(faceCanvas, faceDiv.textContent);
+  renderFaceCanvas(faceCanvas, faceDiv.textContent);
 }
 
 document.getElementById('cr-size').addEventListener('input', function() {
@@ -1436,6 +1581,24 @@ document.getElementById('cr-image').addEventListener('input', function() {
   document.getElementById('cv-image').textContent = on ? 'ON' : 'OFF';
   document.getElementById('photo').style.visibility = on ? 'visible' : 'hidden';
   document.getElementById('stage').style.background = on ? 'transparent' : '#000';
+});
+
+// Style toggle (pixel vs dot-matrix)
+document.getElementById('cr-style').addEventListener('input', function() {
+  renderMode = parseInt(this.value);
+  document.getElementById('cv-style').textContent = renderMode === 1 ? 'DOT' : 'PX';
+  const fc = document.getElementById('face-canvas');
+  const pc = document.getElementById('pw-canvas');
+  if (renderMode === 1) {
+    fc.classList.add('dot-mode');
+    pc.classList.add('dot-mode');
+    fc.style.width = '100%';
+  } else {
+    fc.classList.remove('dot-mode');
+    pc.classList.remove('dot-mode');
+    fc.style.width = '90%';
+  }
+  rerenderFace();
 });
 
 // HUD toggle (hide/show number buttons + key hints + expression label)
