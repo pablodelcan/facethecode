@@ -47,6 +47,7 @@
     align-items: center;
     justify-content: center;
     pointer-events: none;
+    overflow: visible;
   }
 
   #face-glow {
@@ -297,16 +298,8 @@
   #face-canvas.dot-mode,
   #pw-canvas.dot-mode {
     image-rendering: auto !important;
-    animation: glow-pulse-dot 4s ease-in-out infinite !important;
-    will-change: filter;
-    transform: scale(1.25);
-    transform-origin: center center;
-  }
-
-  @keyframes glow-pulse-dot {
-    0%   { filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 0 5px rgba(200,220,255,0.8)) drop-shadow(0 0 12px rgba(180,200,255,0.35)); }
-    50%  { filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 3px #fff) drop-shadow(0 0 7px rgba(200,220,255,0.9)) drop-shadow(0 0 18px rgba(180,200,255,0.45)); }
-    100% { filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 0 5px rgba(200,220,255,0.8)) drop-shadow(0 0 12px rgba(180,200,255,0.35)); }
+    animation: none !important;
+    filter: drop-shadow(0 0 1px rgba(255,255,255,0.6)) !important;
   }
 
   #controls {
@@ -1012,7 +1005,7 @@ function renderDotCanvas(canvas, text) {
   // Pass 3: Tight bright halo around each dot
   if (gs > 0) {
     ctx.filter = 'blur(' + Math.round(2 * gs) + 'px)';
-    ctx.globalAlpha = 0.8;
+    ctx.globalAlpha = 0.5 * gs;
     ctx.drawImage(off, 0, 0);
   }
   // Pass 4: Sharp bright dot cores
