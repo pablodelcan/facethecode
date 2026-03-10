@@ -1881,17 +1881,17 @@ resetIdle();
       camVideo.srcObject = camStream;
       await camVideo.play();
 
-      // Dynamic import of MediaPipe
+      // Dynamic import of MediaPipe (pinned version for stability)
+      const MP_VER = '0.10.18';
       const vision = await import(
-        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest'
+        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@' + MP_VER
       );
       const filesetResolver = await vision.FilesetResolver.forVisionTasks(
-        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@' + MP_VER + '/wasm'
       );
       faceLandmarker = await vision.FaceLandmarker.createFromOptions(filesetResolver, {
         baseOptions: {
-          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
-          delegate: 'GPU'
+          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
         },
         runningMode: 'VIDEO',
         numFaces: 1,
@@ -1907,31 +1907,46 @@ resetIdle();
       camBtn.textContent = 'CAM';
       camActive = true;
 
+      // Wait for video to have actual frame data
+      await new Promise(function(resolve) {
+        if (camVideo.readyState >= 2) return resolve();
+        camVideo.addEventListener('loadeddata', resolve, { once: true });
+      });
+
       // Start detection loop
+      var frameErrors = 0;
       function detect() {
         if (!camActive) return;
+        if (camVideo.readyState < 2) {
+          camRAF = requestAnimationFrame(detect);
+          return;
+        }
         const now = performance.now();
         try {
-          const results = faceLandmarker.detectForVideo(camVideo, now);
-          if (results && results.faceBlendshapes && results.faceBlendshapes.length > 0) {
-            const bs = {};
-            results.faceBlendshapes[0].categories.forEach(function(c) {
-              bs[c.categoryName] = c.score;
-            });
-
-            const expr = blendshapesToExpression(bs);
-            const now2 = Date.now();
-
-            // Debounce: only change if different and cooldown elapsed
-            if (expr !== lastExpression && now2 > expressionCooldown) {
-              lastExpression = expr;
-              expressionCooldown = now2 + 300; // 300ms cooldown
-              const target = emotionFace(expr);
-              setFaceInstant(target);
-              setLabel(E[expr].name + ' (CAM)');
-            }
+          var results = faceLandmarker.detectForVideo(camVideo, now);
+        } catch(e) {
+          if (frameErrors < 5) { console.warn('CAM detect error:', e.message); frameErrors++; }
+          camRAF = requestAnimationFrame(detect);
+          return;
+        }
+        if (results && results.faceBlendshapes && results.faceBlendshapes.length > 0) {
+          var cats = results.faceBlendshapes[0].categories;
+          var bs = {};
+          for (var i = 0; i < cats.length; i++) {
+            bs[cats[i].categoryName] = cats[i].score;
           }
-        } catch(e) { /* skip frame on error */ }
+
+          var expr = blendshapesToExpression(bs);
+          var now2 = Date.now();
+
+          // Debounce: only change if different and cooldown elapsed
+          if (expr !== lastExpression && now2 > expressionCooldown) {
+            lastExpression = expr;
+            expressionCooldown = now2 + 300;
+            setFaceInstant(emotionFace(expr));
+            setLabel(E[expr].name + ' (CAM)');
+          }
+        }
         camRAF = requestAnimationFrame(detect);
       }
       detect();
