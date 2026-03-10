@@ -271,6 +271,26 @@
   }
   #hud-toggle:hover { background: rgba(255,255,255,0.15); color: #fff; }
 
+  #cam-toggle {
+    position: fixed;
+    top: 12px;
+    left: 65px;
+    z-index: 900;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 4px;
+    color: #888;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    padding: 6px 10px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  #cam-toggle:hover { background: rgba(255,255,255,0.15); color: #fff; }
+  #cam-toggle.active { background: rgba(255,80,80,0.3); border-color: rgba(255,80,80,0.5); color: #f55; }
+  #cam-toggle.loading { color: #ff0; animation: cam-blink 0.5s ease-in-out infinite alternate; }
+  @keyframes cam-blink { 0% { opacity: 0.5; } 100% { opacity: 1; } }
+
   #hud.hidden { display: none !important; }
   #expr-label.hidden { display: none !important; }
 
@@ -438,6 +458,8 @@
 </div>
 
 <button id="hud-toggle">[?]</button>
+<button id="cam-toggle">CAM</button>
+<video id="cam-video" autoplay playsinline style="display:none"></video>
 <div id="expr-label"></div>
 
 <div id="stage">
@@ -1758,5 +1780,157 @@ resetIdle();
   }, true);
 })();
 
+// ── Camera Face Tracking ──────────────────────────────────────────────────────
+(function() {
+  const camBtn = document.getElementById('cam-toggle');
+  const camVideo = document.getElementById('cam-video');
+  let camActive = false;
+  let camStream = null;
+  let faceLandmarker = null;
+  let camRAF = null;
+  let lastExpression = -1;
+  let expressionCooldown = 0;
+
+  // Map blendshape values → ASCII expression index
+  function blendshapesToExpression(bs) {
+    const smile = (bs.mouthSmileLeft + bs.mouthSmileRight) / 2;
+    const frown = (bs.mouthFrownLeft + bs.mouthFrownRight) / 2;
+    const browsUp = bs.browInnerUp;
+    const browDown = (bs.browDownLeft + bs.browDownRight) / 2;
+    const jawOpen = bs.jawOpen;
+    const blinkL = bs.eyeBlinkLeft;
+    const blinkR = bs.eyeBlinkRight;
+    const wideL = bs.eyeWideLeft || 0;
+    const wideR = bs.eyeWideRight || 0;
+
+    // Both eyes closed tight → DEAD (9)
+    if (blinkL > 0.7 && blinkR > 0.7 && jawOpen < 0.15) return 9;
+
+    // Surprised: mouth open + eyes wide or brows up
+    if (jawOpen > 0.35 && (browsUp > 0.25 || wideL > 0.3 || wideR > 0.3)) return 8;
+
+    // Angry: brows furrowed + frown
+    if (browDown > 0.35 && frown > 0.15) return 7;
+
+    // Sad: brows down or inner up + frown
+    if (frown > 0.25 && browsUp > 0.2) return 4;
+
+    // Excited: big smile + brows up
+    if (smile > 0.45 && browsUp > 0.2) return 5;
+
+    // Smile / happy
+    if (smile > 0.4) return 2;
+
+    // Frown
+    if (frown > 0.3) return 3;
+
+    // Wink: one eye closed, other open
+    if ((blinkL > 0.5 && blinkR < 0.3) || (blinkR > 0.5 && blinkL < 0.3)) return 1;
+
+    // Mouth open (no other strong signal)
+    if (jawOpen > 0.25) return 6;
+
+    // Default neutral
+    return 0;
+  }
+
+  async function startCam() {
+    camBtn.classList.add('loading');
+    camBtn.textContent = '...';
+
+    try {
+      // Request camera
+      camStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 320, height: 240, facingMode: 'user' }
+      });
+      camVideo.srcObject = camStream;
+      await camVideo.play();
+
+      // Dynamic import of MediaPipe
+      const vision = await import(
+        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest'
+      );
+      const filesetResolver = await vision.FilesetResolver.forVisionTasks(
+        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+      );
+      faceLandmarker = await vision.FaceLandmarker.createFromOptions(filesetResolver, {
+        baseOptions: {
+          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+          delegate: 'GPU'
+        },
+        runningMode: 'VIDEO',
+        numFaces: 1,
+        outputFaceBlendshapes: true
+      });
+
+      // Disable idle drift while camera is active
+      clearTimeout(idleTimer);
+      clearInterval(idleIv);
+
+      camBtn.classList.remove('loading');
+      camBtn.classList.add('active');
+      camBtn.textContent = 'CAM';
+      camActive = true;
+
+      // Start detection loop
+      function detect() {
+        if (!camActive) return;
+        const now = performance.now();
+        try {
+          const results = faceLandmarker.detectForVideo(camVideo, now);
+          if (results && results.faceBlendshapes && results.faceBlendshapes.length > 0) {
+            const bs = {};
+            results.faceBlendshapes[0].categories.forEach(function(c) {
+              bs[c.categoryName] = c.score;
+            });
+
+            const expr = blendshapesToExpression(bs);
+            const now2 = Date.now();
+
+            // Debounce: only change if different and cooldown elapsed
+            if (expr !== lastExpression && now2 > expressionCooldown) {
+              lastExpression = expr;
+              expressionCooldown = now2 + 300; // 300ms cooldown
+              const target = emotionFace(expr);
+              setFaceInstant(target);
+              setLabel(E[expr].name + ' (CAM)');
+            }
+          }
+        } catch(e) { /* skip frame on error */ }
+        camRAF = requestAnimationFrame(detect);
+      }
+      detect();
+
+    } catch(e) {
+      console.error('Camera error:', e);
+      camBtn.classList.remove('loading');
+      camBtn.textContent = 'CAM';
+      alert('Camera access denied or unavailable.');
+    }
+  }
+
+  function stopCam() {
+    camActive = false;
+    if (camRAF) { cancelAnimationFrame(camRAF); camRAF = null; }
+    if (camStream) {
+      camStream.getTracks().forEach(function(t) { t.stop(); });
+      camStream = null;
+    }
+    camVideo.srcObject = null;
+    if (faceLandmarker) { faceLandmarker.close(); faceLandmarker = null; }
+    camBtn.classList.remove('active', 'loading');
+    camBtn.textContent = 'CAM';
+    lastExpression = -1;
+
+    // Restore face to default and restart idle
+    scrambleTo(emotionFace(0), function() { setLabel('0 DEFAULT'); });
+    resetIdle();
+  }
+
+  camBtn.addEventListener('click', function() {
+    if (camActive) stopCam();
+    else startCam();
+  });
+})();
 
 </script>
