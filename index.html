@@ -1845,85 +1845,214 @@ resetIdle();
 
   // ── Build face dynamically from blendshape values ──
   function bsToFace(bs) {
-    var smile   = ((bs.mouthSmileLeft || 0) + (bs.mouthSmileRight || 0)) / 2;
-    var frown   = ((bs.mouthFrownLeft || 0) + (bs.mouthFrownRight || 0)) / 2;
-    var browUp  = bs.browInnerUp || 0;
-    var browDnL = bs.browDownLeft || 0;
-    var browDnR = bs.browDownRight || 0;
-    var browDn  = (browDnL + browDnR) / 2;
-    var jaw     = bs.jawOpen || 0;
-    var blinkL  = bs.eyeBlinkLeft || 0;
-    var blinkR  = bs.eyeBlinkRight || 0;
-    var wideL   = bs.eyeWideLeft || 0;
-    var wideR   = bs.eyeWideRight || 0;
-    var pucker  = bs.mouthPucker || 0;
+    // ── Read all blendshapes ──
+    var smile    = ((bs.mouthSmileLeft || 0) + (bs.mouthSmileRight || 0)) / 2;
+    var smileL   = bs.mouthSmileLeft || 0;
+    var smileR   = bs.mouthSmileRight || 0;
+    var frown    = ((bs.mouthFrownLeft || 0) + (bs.mouthFrownRight || 0)) / 2;
+    var browUp   = bs.browInnerUp || 0;
+    var browDnL  = bs.browDownLeft || 0;
+    var browDnR  = bs.browDownRight || 0;
+    var browDn   = (browDnL + browDnR) / 2;
+    var browOutL = bs.browOuterUpLeft || 0;
+    var browOutR = bs.browOuterUpRight || 0;
+    var jaw      = bs.jawOpen || 0;
+    var blinkL   = bs.eyeBlinkLeft || 0;
+    var blinkR   = bs.eyeBlinkRight || 0;
+    var wideL    = bs.eyeWideLeft || 0;
+    var wideR    = bs.eyeWideRight || 0;
+    var squintL  = bs.eyeSquintLeft || 0;
+    var squintR  = bs.eyeSquintRight || 0;
+    var lookUpL  = bs.eyeLookUpLeft || 0;
+    var lookUpR  = bs.eyeLookUpRight || 0;
+    var lookDnL  = bs.eyeLookDownLeft || 0;
+    var lookDnR  = bs.eyeLookDownRight || 0;
+    var lookInL  = bs.eyeLookInLeft || 0;
+    var lookInR  = bs.eyeLookInRight || 0;
+    var lookOutL = bs.eyeLookOutLeft || 0;
+    var lookOutR = bs.eyeLookOutRight || 0;
+    var pucker   = bs.mouthPucker || 0;
+    var funnel   = bs.mouthFunnel || 0;
+    var mouthL   = bs.mouthLeft || 0;
+    var mouthR   = bs.mouthRight || 0;
+    var sneerL   = bs.noseSneerLeft || 0;
+    var sneerR   = bs.noseSneerRight || 0;
+    var sneer    = (sneerL + sneerR) / 2;
+    var cheekPuf = bs.cheekPuff || 0;
+    var tongue   = bs.tongueOut || 0;
+    var stretchL = bs.mouthStretchLeft || 0;
+    var stretchR = bs.mouthStretchRight || 0;
+    var stretch  = (stretchL + stretchR) / 2;
+    var dimpleL  = bs.mouthDimpleLeft || 0;
+    var dimpleR  = bs.mouthDimpleRight || 0;
+    var pressL   = bs.mouthPressLeft || 0;
+    var pressR   = bs.mouthPressRight || 0;
+    var press    = (pressL + pressR) / 2;
+    var lowerDnL = bs.mouthLowerDownLeft || 0;
+    var lowerDnR = bs.mouthLowerDownRight || 0;
+    var upperUpL = bs.mouthUpperUpLeft || 0;
+    var upperUpR = bs.mouthUpperUpRight || 0;
+    var jawLeft  = bs.jawLeft || 0;
+    var jawRight = bs.jawRight || 0;
 
-    // ── Brows ──
-    var brow, arc;
-    if (browDn > 0.35) {
-      // Angry/furrowed
-      brow = "  \\__      __/     ";
+    // ── Brows (asymmetric aware) ──
+    var browL, browR, arc;
+    // Detect asymmetry: one brow up, other down
+    var asymL = browOutL - browDnL;
+    var asymR = browOutR - browDnR;
+
+    function pickBrowHalf(up, dn, outer) {
+      if (dn > 0.35)                return "\\__";    // angry
+      if (up > 0.35 && jaw > 0.2)   return " --";     // shocked
+      if (outer > 0.3)              return " ~ ";      // skeptical outer raise
+      if (up > 0.25)                return " ^^";      // raised
+      if (dn > 0.2 && sneer > 0.2)  return "\\~~";    // disgusted
+      if (frown > 0.25 && up > 0.1) return "  _\\";   // sad
+      return " __";                                    // neutral
+    }
+
+    browL = pickBrowHalf(browUp, browDnL, browOutL);
+    browR = pickBrowHalf(browUp, browDnR, browOutR);
+    // Mirror the right brow
+    var browRMir = browR.split('').reverse().join('')
+      .replace(/\\/g, '§').replace(/\//g, '\\').replace(/§/g, '/');
+    brow = "  " + browL + "      " + browRMir + "   ";
+
+    // Arc responds to highest brow state
+    var maxBrowUp = Math.max(browUp, browOutL, browOutR);
+    if (maxBrowUp > 0.35 && jaw > 0.2) {
+      arc = " /   \\    /   \\   ";
+    } else if (browDn > 0.35 || sneer > 0.3) {
       arc = A0;
-    } else if (browUp > 0.35 && jaw > 0.2) {
-      // Surprised — raised high
-      brow = "   --       --    ";
-      arc  = " /   \\    /   \\   ";
-    } else if (browUp > 0.25) {
-      // Raised
-      brow = "  ^^      ^^      ";
-      arc  = "                  ";
-    } else if (frown > 0.25 && browUp > 0.15) {
-      // Sad
-      brow = "    _\\      /_     ";
-      arc = A0;
+    } else if (maxBrowUp > 0.25) {
+      arc = "                  ";
     } else {
-      // Neutral
-      brow = B0;
       arc = A0;
     }
 
-    // ── Eyes ──
-    var pupilL, pupilR;
-    // Closed eyes
-    if (blinkL > 0.6) pupilL = "(-)";
-    else if (wideL > 0.3 || (browUp > 0.3 && jaw > 0.2)) pupilL = "(o)";
-    else pupilL = "(@)";
+    // ── Eyes (per-eye, 10 states each) ──
+    function pickEye(blink, wide, squint, lookUp, lookDn, lookIn, lookOut) {
+      if (blink > 0.6)                              return "(-)";  // closed
+      if (blink > 0.35)                              return "(~)";  // half-closed
+      if (squint > 0.5 && smile > 0.3)               return "(^)";  // happy squint
+      if (squint > 0.4)                              return "(=)";  // squinting
+      if (wide > 0.5 || (browUp > 0.4 && jaw > 0.3)) return "(O)";  // very wide
+      if (wide > 0.3 || (browUp > 0.3 && jaw > 0.2)) return "(o)";  // wide
+      if (lookUp > 0.4)                              return "(^)";  // looking up
+      if (lookDn > 0.5)                              return "(.)";  // looking down
+      if (lookIn > 0.5)                              return "(>)";  // looking inward
+      if (lookOut > 0.5)                             return "(<)";  // looking outward
+      if (sneer > 0.3)                               return "(*)";  // disgusted
+      return "(@)";                                                  // neutral
+    }
 
-    if (blinkR > 0.6) pupilR = "(-)";
-    else if (wideR > 0.3 || (browUp > 0.3 && jaw > 0.2)) pupilR = "(o)";
-    else pupilR = "(@)";
+    var pupilL = pickEye(blinkL, wideL, squintL, lookUpL, lookDnL, lookInL, lookOutL);
+    var pupilR = pickEye(blinkR, wideR, squintR, lookUpR, lookDnR, lookInR, lookOutR);
+    // Wink detection: one eye closed, other open, with smile
+    if (blinkL > 0.6 && blinkR < 0.3 && smile > 0.15) pupilL = "(-)";
+    if (blinkR > 0.6 && blinkL < 0.3 && smile > 0.15) pupilR = "(-)";
 
     var pupil = "  " + pupilL + "     " + pupilR + "     ";
 
-    // ── Mouth ──
+    // ── Nose (variable on sneer) ──
+    var noseLine1, noseLine2;
+    if (sneer > 0.4) {
+      noseLine1 = "        ~";
+      noseLine2 = "       /~";
+    } else if (sneer > 0.2) {
+      noseLine1 = "        /";
+      noseLine2 = "       /`";
+    } else {
+      noseLine1 = "        /";
+      noseLine2 = "       /_";
+    }
+
+    // ── Mouth (20+ states, priority ordered) ──
     var mouth;
-    if (jaw > 0.45) {
-      // Wide open (talking loud / surprised)
+    // Smirk detection (asymmetric smile)
+    var smirkDelta = Math.abs(smileL - smileR);
+    var isSmirkL = smileL > smileR + 0.15;
+    var isSmirkR = smileR > smileL + 0.15;
+
+    if (tongue > 0.5 && jaw > 0.15) {
+      // Tongue out
+      mouth = "      (P~~)       ";
+    } else if (cheekPuf > 0.4) {
+      // Cheek puff
+      mouth = "     =(---)=      ";
+    } else if (jaw > 0.55) {
+      // Very wide open (yelling/shocked)
+      mouth = "     (     )      ";
+    } else if (jaw > 0.45 && smile > 0.3) {
+      // Open smile (laughing)
+      mouth = "    \\(     )/     ";
+    } else if (jaw > 0.45) {
+      // Wide open
       mouth = "      (   )       ";
+    } else if (jaw > 0.3 && smile > 0.25) {
+      // Talking while smiling
+      mouth = "     \\(  )/       ";
+    } else if (jaw > 0.3 && frown > 0.2) {
+      // Talking while frowning
+      mouth = "      /(  )\\      ";
     } else if (jaw > 0.25) {
-      // Medium open (talking)
+      // Medium open
       mouth = "       ( )        ";
+    } else if (jaw > 0.15 && smile > 0.2) {
+      // Soft talking smile
+      mouth = "      \\(-)/       ";
     } else if (jaw > 0.12) {
-      // Slightly open (soft talking)
+      // Slightly open
       mouth = "       (-)        ";
+    } else if (pucker > 0.5 || funnel > 0.5) {
+      // Kiss / whistle
+      mouth = "       {o}        ";
+    } else if (pucker > 0.3 || funnel > 0.3) {
+      // Pucker
+      mouth = "       (o)        ";
+    } else if (smile > 0.6 && squintL > 0.3) {
+      // Big grin (happy squint)
+      mouth = "   \\________/     ";
     } else if (smile > 0.5) {
       // Big smile
       mouth = M[1];
+    } else if (isSmirkL && smile > 0.15) {
+      // Smirk left
+      mouth = "      ___//       ";
+    } else if (isSmirkR && smile > 0.15) {
+      // Smirk right
+      mouth = "      \\\\___       ";
     } else if (smile > 0.25) {
       // Small smile
       mouth = "    <**//**>      ";
-    } else if (frown > 0.3) {
+    } else if (stretch > 0.4 || (frown > 0.2 && browDn > 0.25)) {
+      // Grimace / teeth gritting
+      mouth = "      >---<       ";
+    } else if (frown > 0.4) {
+      // Deep frown
+      mouth = M[3];
+    } else if (frown > 0.25) {
       // Frown
       mouth = M[2];
-    } else if (pucker > 0.4) {
-      // Pucker
-      mouth = "       (o)        ";
+    } else if (press > 0.4) {
+      // Lips pressed tight
+      mouth = "      =====       ";
+    } else if (sneer > 0.35) {
+      // Disgusted
+      mouth = "      ~---~       ";
+    } else if (jawLeft > 0.3) {
+      // Jaw shifted left
+      mouth = "     -----        ";
+    } else if (jawRight > 0.3) {
+      // Jaw shifted right
+      mouth = "       -----      ";
     } else {
       // Neutral closed
       mouth = "      -----       ";
     }
 
-    return face(brow, arc, pupil, mouth);
+    // Build face string directly (not via face()) to allow custom nose
+    return [brow, arc, pupil, "", noseLine1, noseLine2, "", mouth].join("\n");
   }
 
   async function startCam() {
@@ -2010,14 +2139,33 @@ resetIdle();
             lastFaceStr = newFace;
             setFaceInstant(newFace);
 
-            // Build a short label from state
+            // Build a descriptive label from state
             var jaw = bs.jawOpen || 0;
-            var smile = ((bs.mouthSmileLeft || 0) + (bs.mouthSmileRight || 0)) / 2;
+            var sm = ((bs.mouthSmileLeft || 0) + (bs.mouthSmileRight || 0)) / 2;
+            var fr = ((bs.mouthFrownLeft || 0) + (bs.mouthFrownRight || 0)) / 2;
+            var bU = bs.browInnerUp || 0;
+            var bD = ((bs.browDownLeft || 0) + (bs.browDownRight || 0)) / 2;
+            var pk = bs.mouthPucker || 0;
+            var tg = bs.tongueOut || 0;
+            var cp = bs.cheekPuff || 0;
+            var sn = ((bs.noseSneerLeft || 0) + (bs.noseSneerRight || 0)) / 2;
             var lbl = 'CAM';
-            if (jaw > 0.25) lbl = 'CAM TALKING';
-            else if (smile > 0.4) lbl = 'CAM SMILE';
-            else if ((bs.eyeBlinkLeft || 0) > 0.6 && (bs.eyeBlinkRight || 0) < 0.3) lbl = 'CAM WINK';
-            else if ((bs.eyeBlinkRight || 0) > 0.6 && (bs.eyeBlinkLeft || 0) < 0.3) lbl = 'CAM WINK';
+            if (tg > 0.5)                                                        lbl = 'CAM TONGUE';
+            else if (cp > 0.4)                                                   lbl = 'CAM PUFF';
+            else if (jaw > 0.45 && sm > 0.3)                                     lbl = 'CAM LAUGH';
+            else if (jaw > 0.45 && bU > 0.3)                                     lbl = 'CAM SHOCKED';
+            else if (jaw > 0.25)                                                 lbl = 'CAM TALKING';
+            else if (sm > 0.5 && (bs.eyeSquintLeft||0) > 0.3)                    lbl = 'CAM GRIN';
+            else if (sm > 0.4)                                                   lbl = 'CAM SMILE';
+            else if (Math.abs((bs.mouthSmileLeft||0)-(bs.mouthSmileRight||0))>0.15 && sm>0.15) lbl = 'CAM SMIRK';
+            else if (pk > 0.4)                                                   lbl = 'CAM KISS';
+            else if (fr > 0.4)                                                   lbl = 'CAM SAD';
+            else if (bD > 0.35)                                                  lbl = 'CAM ANGRY';
+            else if (bU > 0.35)                                                  lbl = 'CAM SURPRISED';
+            else if (sn > 0.3)                                                   lbl = 'CAM DISGUST';
+            else if ((bs.eyeBlinkLeft||0) > 0.6 && (bs.eyeBlinkRight||0) < 0.3)  lbl = 'CAM WINK';
+            else if ((bs.eyeBlinkRight||0) > 0.6 && (bs.eyeBlinkLeft||0) < 0.3)  lbl = 'CAM WINK';
+            else if ((bs.eyeSquintLeft||0) > 0.4 && (bs.eyeSquintRight||0) > 0.4) lbl = 'CAM SQUINT';
             setLabel(lbl);
           }
         }
