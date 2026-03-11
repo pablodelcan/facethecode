@@ -1898,28 +1898,28 @@ resetIdle();
     var jawLeft  = bs.jawLeft || 0;
     var jawRight = bs.jawRight || 0;
 
-    // ── Brows (asymmetric aware) ──
-    var browL, browR, arc;
-    // Detect asymmetry: one brow up, other down
-    var asymL = browOutL - browDnL;
-    var asymR = browOutR - browDnR;
+    // ── Brows (asymmetric aware, L and R picked independently) ──
+    var brow, arc;
+    // Pick left brow half
+    var lbStr, rbStr;
+    if (browDnL > 0.35)                       lbStr = "  \\__";
+    else if (browUp > 0.35 && jaw > 0.2)      lbStr = "   --";
+    else if (browOutL > 0.3)                   lbStr = "   ~ ";
+    else if (browUp > 0.25)                    lbStr = "  ^^ ";
+    else if (browDnL > 0.2 && sneer > 0.2)    lbStr = "  \\~~";
+    else if (frown > 0.25 && browUp > 0.1)    lbStr = "    _\\";
+    else                                       lbStr = "   __";
 
-    function pickBrowHalf(up, dn, outer) {
-      if (dn > 0.35)                return "\\__";    // angry
-      if (up > 0.35 && jaw > 0.2)   return " --";     // shocked
-      if (outer > 0.3)              return " ~ ";      // skeptical outer raise
-      if (up > 0.25)                return " ^^";      // raised
-      if (dn > 0.2 && sneer > 0.2)  return "\\~~";    // disgusted
-      if (frown > 0.25 && up > 0.1) return "  _\\";   // sad
-      return " __";                                    // neutral
-    }
+    // Pick right brow half (mirrored)
+    if (browDnR > 0.35)                        rbStr = "__/     ";
+    else if (browUp > 0.35 && jaw > 0.2)       rbStr = "--      ";
+    else if (browOutR > 0.3)                    rbStr = " ~      ";
+    else if (browUp > 0.25)                     rbStr = " ^^     ";
+    else if (browDnR > 0.2 && sneer > 0.2)     rbStr = "~~/     ";
+    else if (frown > 0.25 && browUp > 0.1)     rbStr = "/_      ";
+    else                                        rbStr = "__      ";
 
-    browL = pickBrowHalf(browUp, browDnL, browOutL);
-    browR = pickBrowHalf(browUp, browDnR, browOutR);
-    // Mirror the right brow
-    var browRMir = browR.split('').reverse().join('')
-      .replace(/\\/g, '§').replace(/\//g, '\\').replace(/§/g, '/');
-    brow = "  " + browL + "      " + browRMir + "   ";
+    brow = lbStr + "      " + rbStr;
 
     // Arc responds to highest brow state
     var maxBrowUp = Math.max(browUp, browOutL, browOutR);
@@ -2091,8 +2091,7 @@ resetIdle();
         },
         runningMode: 'VIDEO',
         numFaces: 1,
-        outputFaceBlendshapes: true,
-        outputFaceLandmarks: true
+        outputFaceBlendshapes: true
       });
 
       // Disable idle drift while camera is active
@@ -2137,7 +2136,13 @@ resetIdle();
             bs[cats[i].categoryName] = cats[i].score;
           }
 
-          var newFace = bsToFace(bs);
+          var newFace;
+          try {
+            newFace = bsToFace(bs);
+          } catch(bsErr) {
+            console.error('CAM bsToFace error:', bsErr.message);
+            newFace = face(B0, A0, P0, M[4]); // fallback neutral face
+          }
           // Only update DOM if face actually changed
           if (newFace !== lastFaceStr) {
             lastFaceStr = newFace;
