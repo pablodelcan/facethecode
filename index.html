@@ -1835,56 +1835,95 @@ resetIdle();
 
 // ── Camera Face Tracking ──────────────────────────────────────────────────────
 (function() {
-  const camBtn = document.getElementById('cam-toggle');
-  const camVideo = document.getElementById('cam-video');
-  let camActive = false;
-  let camStream = null;
-  let faceLandmarker = null;
-  let camRAF = null;
-  let lastExpression = -1;
-  let expressionCooldown = 0;
+  var camBtn = document.getElementById('cam-toggle');
+  var camVideo = document.getElementById('cam-video');
+  var camActive = false;
+  var camStream = null;
+  var faceLandmarker = null;
+  var camRAF = null;
+  var lastFaceStr = '';
 
-  // Map blendshape values → ASCII expression index
-  function blendshapesToExpression(bs) {
-    const smile = (bs.mouthSmileLeft + bs.mouthSmileRight) / 2;
-    const frown = (bs.mouthFrownLeft + bs.mouthFrownRight) / 2;
-    const browsUp = bs.browInnerUp;
-    const browDown = (bs.browDownLeft + bs.browDownRight) / 2;
-    const jawOpen = bs.jawOpen;
-    const blinkL = bs.eyeBlinkLeft;
-    const blinkR = bs.eyeBlinkRight;
-    const wideL = bs.eyeWideLeft || 0;
-    const wideR = bs.eyeWideRight || 0;
+  // ── Build face dynamically from blendshape values ──
+  function bsToFace(bs) {
+    var smile   = ((bs.mouthSmileLeft || 0) + (bs.mouthSmileRight || 0)) / 2;
+    var frown   = ((bs.mouthFrownLeft || 0) + (bs.mouthFrownRight || 0)) / 2;
+    var browUp  = bs.browInnerUp || 0;
+    var browDnL = bs.browDownLeft || 0;
+    var browDnR = bs.browDownRight || 0;
+    var browDn  = (browDnL + browDnR) / 2;
+    var jaw     = bs.jawOpen || 0;
+    var blinkL  = bs.eyeBlinkLeft || 0;
+    var blinkR  = bs.eyeBlinkRight || 0;
+    var wideL   = bs.eyeWideLeft || 0;
+    var wideR   = bs.eyeWideRight || 0;
+    var pucker  = bs.mouthPucker || 0;
 
-    // Both eyes closed tight → DEAD (9)
-    if (blinkL > 0.7 && blinkR > 0.7 && jawOpen < 0.15) return 9;
+    // ── Brows ──
+    var brow, arc;
+    if (browDn > 0.35) {
+      // Angry/furrowed
+      brow = "  \\__      __/     ";
+      arc = A0;
+    } else if (browUp > 0.35 && jaw > 0.2) {
+      // Surprised — raised high
+      brow = "   --       --    ";
+      arc  = " /   \\    /   \\   ";
+    } else if (browUp > 0.25) {
+      // Raised
+      brow = "  ^^      ^^      ";
+      arc  = "                  ";
+    } else if (frown > 0.25 && browUp > 0.15) {
+      // Sad
+      brow = "    _\\      /_     ";
+      arc = A0;
+    } else {
+      // Neutral
+      brow = B0;
+      arc = A0;
+    }
 
-    // Surprised: mouth open + eyes wide or brows up
-    if (jawOpen > 0.35 && (browsUp > 0.25 || wideL > 0.3 || wideR > 0.3)) return 8;
+    // ── Eyes ──
+    var pupilL, pupilR;
+    // Closed eyes
+    if (blinkL > 0.6) pupilL = "(-)";
+    else if (wideL > 0.3 || (browUp > 0.3 && jaw > 0.2)) pupilL = "(o)";
+    else pupilL = "(@)";
 
-    // Angry: brows furrowed + frown
-    if (browDown > 0.35 && frown > 0.15) return 7;
+    if (blinkR > 0.6) pupilR = "(-)";
+    else if (wideR > 0.3 || (browUp > 0.3 && jaw > 0.2)) pupilR = "(o)";
+    else pupilR = "(@)";
 
-    // Sad: brows down or inner up + frown
-    if (frown > 0.25 && browsUp > 0.2) return 4;
+    var pupil = "  " + pupilL + "     " + pupilR + "     ";
 
-    // Excited: big smile + brows up
-    if (smile > 0.45 && browsUp > 0.2) return 5;
+    // ── Mouth ──
+    var mouth;
+    if (jaw > 0.45) {
+      // Wide open (talking loud / surprised)
+      mouth = "      (   )       ";
+    } else if (jaw > 0.25) {
+      // Medium open (talking)
+      mouth = "       ( )        ";
+    } else if (jaw > 0.12) {
+      // Slightly open (soft talking)
+      mouth = "       (-)        ";
+    } else if (smile > 0.5) {
+      // Big smile
+      mouth = M[1];
+    } else if (smile > 0.25) {
+      // Small smile
+      mouth = "    <**//**>      ";
+    } else if (frown > 0.3) {
+      // Frown
+      mouth = M[2];
+    } else if (pucker > 0.4) {
+      // Pucker
+      mouth = "       (o)        ";
+    } else {
+      // Neutral closed
+      mouth = "      -----       ";
+    }
 
-    // Smile / happy
-    if (smile > 0.4) return 2;
-
-    // Frown
-    if (frown > 0.3) return 3;
-
-    // Wink: one eye closed, other open
-    if ((blinkL > 0.5 && blinkR < 0.3) || (blinkR > 0.5 && blinkL < 0.3)) return 1;
-
-    // Mouth open (no other strong signal)
-    if (jawOpen > 0.25) return 6;
-
-    // Default neutral
-    return 0;
+    return face(brow, arc, pupil, mouth);
   }
 
   async function startCam() {
@@ -1899,12 +1938,19 @@ resetIdle();
       camVideo.srcObject = camStream;
       await camVideo.play();
 
-      // Dynamic import of MediaPipe (pinned version for stability)
-      const MP_VER = '0.10.18';
-      const vision = await import(
+      // Wait for video to have actual frame data
+      await new Promise(function(resolve) {
+        if (camVideo.readyState >= 2) return resolve();
+        camVideo.addEventListener('loadeddata', resolve, { once: true });
+      });
+
+      // Dynamic import of MediaPipe (pinned version)
+      camBtn.textContent = 'AI..';
+      var MP_VER = '0.10.21';
+      var vision = await import(
         'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@' + MP_VER
       );
-      const filesetResolver = await vision.FilesetResolver.forVisionTasks(
+      var filesetResolver = await vision.FilesetResolver.forVisionTasks(
         'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@' + MP_VER + '/wasm'
       );
       faceLandmarker = await vision.FaceLandmarker.createFromOptions(filesetResolver, {
@@ -1924,29 +1970,33 @@ resetIdle();
       camBtn.classList.add('active');
       camBtn.textContent = 'CAM';
       camActive = true;
-
-      // Wait for video to have actual frame data
-      await new Promise(function(resolve) {
-        if (camVideo.readyState >= 2) return resolve();
-        camVideo.addEventListener('loadeddata', resolve, { once: true });
-      });
+      lastFaceStr = '';
+      console.log('CAM: face landmarker ready, starting detection');
 
       // Start detection loop
       var frameErrors = 0;
+      var lastTs = -1;
       function detect() {
         if (!camActive) return;
         if (camVideo.readyState < 2) {
           camRAF = requestAnimationFrame(detect);
           return;
         }
-        const now = performance.now();
+        var now = performance.now();
+        // MediaPipe needs strictly increasing timestamps
+        if (now <= lastTs) now = lastTs + 1;
+        lastTs = now;
+
         try {
           var results = faceLandmarker.detectForVideo(camVideo, now);
         } catch(e) {
-          if (frameErrors < 5) { console.warn('CAM detect error:', e.message); frameErrors++; }
+          frameErrors++;
+          if (frameErrors <= 10) console.warn('CAM detect error #' + frameErrors + ':', e.message);
+          if (frameErrors === 10) console.warn('CAM: suppressing further errors');
           camRAF = requestAnimationFrame(detect);
           return;
         }
+
         if (results && results.faceBlendshapes && results.faceBlendshapes.length > 0) {
           var cats = results.faceBlendshapes[0].categories;
           var bs = {};
@@ -1954,15 +2004,21 @@ resetIdle();
             bs[cats[i].categoryName] = cats[i].score;
           }
 
-          var expr = blendshapesToExpression(bs);
-          var now2 = Date.now();
+          var newFace = bsToFace(bs);
+          // Only update DOM if face actually changed
+          if (newFace !== lastFaceStr) {
+            lastFaceStr = newFace;
+            setFaceInstant(newFace);
 
-          // Debounce: only change if different and cooldown elapsed
-          if (expr !== lastExpression && now2 > expressionCooldown) {
-            lastExpression = expr;
-            expressionCooldown = now2 + 300;
-            setFaceInstant(emotionFace(expr));
-            setLabel(E[expr].name + ' (CAM)');
+            // Build a short label from state
+            var jaw = bs.jawOpen || 0;
+            var smile = ((bs.mouthSmileLeft || 0) + (bs.mouthSmileRight || 0)) / 2;
+            var lbl = 'CAM';
+            if (jaw > 0.25) lbl = 'CAM TALKING';
+            else if (smile > 0.4) lbl = 'CAM SMILE';
+            else if ((bs.eyeBlinkLeft || 0) > 0.6 && (bs.eyeBlinkRight || 0) < 0.3) lbl = 'CAM WINK';
+            else if ((bs.eyeBlinkRight || 0) > 0.6 && (bs.eyeBlinkLeft || 0) < 0.3) lbl = 'CAM WINK';
+            setLabel(lbl);
           }
         }
         camRAF = requestAnimationFrame(detect);
@@ -1970,10 +2026,15 @@ resetIdle();
       detect();
 
     } catch(e) {
-      console.error('Camera error:', e);
+      console.error('CAM startup error:', e);
       camBtn.classList.remove('loading');
       camBtn.textContent = 'CAM';
-      alert('Camera access denied or unavailable.');
+      if (camStream) {
+        camStream.getTracks().forEach(function(t) { t.stop(); });
+        camStream = null;
+      }
+      camVideo.srcObject = null;
+      alert('Camera error: ' + e.message);
     }
   }
 
@@ -1988,7 +2049,7 @@ resetIdle();
     if (faceLandmarker) { faceLandmarker.close(); faceLandmarker = null; }
     camBtn.classList.remove('active', 'loading');
     camBtn.textContent = 'CAM';
-    lastExpression = -1;
+    lastFaceStr = '';
 
     // Restore face to default and restart idle
     scrambleTo(emotionFace(0), function() { setLabel('0 DEFAULT'); });
