@@ -735,6 +735,7 @@ let eyeOfsX = -1, eyeOfsY = 0;
 let noseOfsX = -4, noseOfsY = -1;
 let mouthOfsX = -2, mouthOfsY = 7;
 let stretchX = 0.7, stretchY = 0.9;
+let camOfsX = 0, camOfsY = 0; // global camera head-tracking offset
 let showImage = true;
 let renderMode = 0; // 0=pixel, 1=dot-matrix
 
@@ -869,12 +870,13 @@ function renderPixelCanvas(canvas, text) {
   // Per-section pixel offsets: line 0=brow (L/R), 1=arc, 2=eyes, 4-5=nose, 6+=mouth
   const mid = Math.floor(maxCols / 2);
   function sectionOfs(li, ci) {
-    if (li === 0) return ci < mid ? { x: lBrowOfsX, y: lBrowOfsY } : { x: rBrowOfsX, y: rBrowOfsY };
-    if (li === 1) return { x: arcOfsX, y: arcOfsY };
-    if (li === 2) return { x: eyeOfsX, y: eyeOfsY };
-    if (li === 4 || li === 5) return { x: noseOfsX, y: noseOfsY };
-    if (li >= 6) return { x: mouthOfsX, y: mouthOfsY };
-    return { x: 0, y: 0 };
+    var sx = camOfsX, sy = camOfsY; // global camera tracking offset
+    if (li === 0) return ci < mid ? { x: lBrowOfsX + sx, y: lBrowOfsY + sy } : { x: rBrowOfsX + sx, y: rBrowOfsY + sy };
+    if (li === 1) return { x: arcOfsX + sx, y: arcOfsY + sy };
+    if (li === 2) return { x: eyeOfsX + sx, y: eyeOfsY + sy };
+    if (li === 4 || li === 5) return { x: noseOfsX + sx, y: noseOfsY + sy };
+    if (li >= 6) return { x: mouthOfsX + sx, y: mouthOfsY + sy };
+    return { x: sx, y: sy };
   }
 
   // Boldness: 100-400=thin, 500-600=widen right, 700-800=right+down, 900=all cardinal
@@ -959,12 +961,13 @@ function renderDotCanvas(canvas, text) {
   const mid = Math.floor(maxCols / 2);
   function sectionOfs(li, ci) {
     const s = DOT_PITCH;
-    if (li === 0) return ci < mid ? { x: lBrowOfsX * s, y: lBrowOfsY * s } : { x: rBrowOfsX * s, y: rBrowOfsY * s };
-    if (li === 1) return { x: arcOfsX * s, y: arcOfsY * s };
-    if (li === 2) return { x: eyeOfsX * s, y: eyeOfsY * s };
-    if (li === 4 || li === 5) return { x: noseOfsX * s, y: noseOfsY * s };
-    if (li >= 6) return { x: mouthOfsX * s, y: mouthOfsY * s };
-    return { x: 0, y: 0 };
+    var gx = camOfsX * s, gy = camOfsY * s;
+    if (li === 0) return ci < mid ? { x: lBrowOfsX * s + gx, y: lBrowOfsY * s + gy } : { x: rBrowOfsX * s + gx, y: rBrowOfsY * s + gy };
+    if (li === 1) return { x: arcOfsX * s + gx, y: arcOfsY * s + gy };
+    if (li === 2) return { x: eyeOfsX * s + gx, y: eyeOfsY * s + gy };
+    if (li === 4 || li === 5) return { x: noseOfsX * s + gx, y: noseOfsY * s + gy };
+    if (li >= 6) return { x: mouthOfsX * s + gx, y: mouthOfsY * s + gy };
+    return { x: gx, y: gy };
   }
 
   // Boldness → larger dots
@@ -2088,7 +2091,8 @@ resetIdle();
         },
         runningMode: 'VIDEO',
         numFaces: 1,
-        outputFaceBlendshapes: true
+        outputFaceBlendshapes: true,
+        outputFaceLandmarks: true
       });
 
       // Disable idle drift while camera is active
@@ -2169,6 +2173,23 @@ resetIdle();
             setLabel(lbl);
           }
         }
+
+        // ── Head position tracking via landmarks ──
+        if (results && results.faceLandmarks && results.faceLandmarks.length > 0) {
+          var lm = results.faceLandmarks[0];
+          // Nose tip = landmark 1, normalized 0-1 coords (mirrored: left in image = right movement)
+          var noseX = lm[1].x;  // 0 = left edge, 1 = right edge
+          var noseY = lm[1].y;  // 0 = top edge, 1 = bottom edge
+          // Map deviation from center (0.5) to pixel offsets
+          // Camera is mirrored so invert X: moving right in real life → face moves right
+          var dx = -(noseX - 0.5) * 24;  // ±12px range
+          var dy = (noseY - 0.5) * 16;   // ±8px range
+          // Smooth with simple lerp to avoid jitter
+          camOfsX = camOfsX * 0.7 + dx * 0.3;
+          camOfsY = camOfsY * 0.7 + dy * 0.3;
+          rerenderFace();
+        }
+
         camRAF = requestAnimationFrame(detect);
       }
       detect();
@@ -2198,6 +2219,7 @@ resetIdle();
     camBtn.classList.remove('active', 'loading');
     camBtn.textContent = 'CAM';
     lastFaceStr = '';
+    camOfsX = 0; camOfsY = 0; // reset position offset
 
     // Restore face to default and restart idle
     scrambleTo(emotionFace(0), function() { setLabel('0 DEFAULT'); });
