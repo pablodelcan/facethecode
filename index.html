@@ -2175,19 +2175,32 @@ resetIdle();
         }
 
         // ── Head position tracking via landmarks ──
-        if (results && results.faceLandmarks && results.faceLandmarks.length > 0) {
-          var lm = results.faceLandmarks[0];
-          // Nose tip = landmark 1, normalized 0-1 coords (mirrored: left in image = right movement)
-          var noseX = lm[1].x;  // 0 = left edge, 1 = right edge
-          var noseY = lm[1].y;  // 0 = top edge, 1 = bottom edge
-          // Map deviation from center (0.5) to pixel offsets
-          // Camera is mirrored so invert X: moving right in real life → face moves right
-          var dx = -(noseX - 0.5) * 24;  // ±12px range
-          var dy = (noseY - 0.5) * 16;   // ±8px range
-          // Smooth with simple lerp to avoid jitter
-          camOfsX = camOfsX * 0.7 + dx * 0.3;
-          camOfsY = camOfsY * 0.7 + dy * 0.3;
-          rerenderFace();
+        try {
+          if (results && results.faceLandmarks && results.faceLandmarks.length > 0) {
+            var lm = results.faceLandmarks[0];
+            if (lm && lm.length > 1 && lm[1] && typeof lm[1].x === 'number') {
+              var noseX = lm[1].x;  // 0 = left edge, 1 = right edge
+              var noseY = lm[1].y;  // 0 = top edge, 1 = bottom edge
+              // Map deviation from center (0.5) to pixel offsets
+              // Camera is mirrored so invert X
+              var dx = -(noseX - 0.5) * 24;  // ±12px range
+              var dy = (noseY - 0.5) * 16;   // ±8px range
+              // Clamp to prevent face flying off screen
+              dx = Math.max(-12, Math.min(12, dx));
+              dy = Math.max(-8, Math.min(8, dy));
+              // Smooth with simple lerp to avoid jitter
+              var newOfsX = camOfsX * 0.7 + dx * 0.3;
+              var newOfsY = camOfsY * 0.7 + dy * 0.3;
+              // Only re-render if offset actually changed meaningfully
+              if (Math.abs(newOfsX - camOfsX) > 0.1 || Math.abs(newOfsY - camOfsY) > 0.1) {
+                camOfsX = newOfsX;
+                camOfsY = newOfsY;
+                rerenderFace();
+              }
+            }
+          }
+        } catch(posErr) {
+          // Don't let position tracking break the detect loop
         }
 
         camRAF = requestAnimationFrame(detect);
