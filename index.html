@@ -241,11 +241,11 @@
   #hud.hidden { display: none !important; }
   #expr-label.hidden { display: none !important; }
 
-  #face-canvas.dot-mode,
-
-
-
-
+  #face-canvas.dot-mode {
+    image-rendering: auto !important;
+    animation: none !important;
+    filter: drop-shadow(0 0 1px rgba(255,255,255,0.6)) !important;
+  }
 
 
   #controls {
@@ -1921,7 +1921,9 @@ var camActive = false; // global so idle/keydown can check
       camBtn.textContent = 'CAM';
       camActive = true;
       lastFaceStr = '';
-      console.log('CAM: face landmarker ready, starting detection');
+      // Set a guaranteed visible face immediately so hood is never blank
+      setFaceInstant(face(B0, A0, P0, M[4]));
+      console.log('CAM: ready. face text length=' + document.getElementById('ascii-face').textContent.length);
 
       // Start detection loop
       var frameErrors = 0;
