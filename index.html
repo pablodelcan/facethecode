@@ -1785,90 +1785,96 @@ var camActive = false; // global so idle/keydown can check
     var isSmirkL = smileL > smileR + 0.15;
     var isSmirkR = smileR > smileL + 0.15;
 
-    if (tongue > 0.4 && jaw > 0.12) {
-      // Tongue out
-      mouth = "      (P~~)       ";
-    } else if (cheekPuf > 0.35) {
-      // Cheek puff
-      mouth = "     =(---)=      ";
-    } else if (jaw > 0.55) {
-      // Very wide open (yelling/shocked)
-      mouth = "     (     )      ";
-    } else if (jaw > 0.4 && smile > 0.3) {
-      // Open smile (laughing)
-      mouth = "    \\(     )/     ";
-    } else if (jaw > 0.4) {
-      // Wide open
-      mouth = "      (   )       ";
-    } else if (jaw > 0.25 && smile > 0.2) {
-      // Talking while smiling
-      mouth = "     \\(  )/       ";
-    } else if (jaw > 0.25 && frown > 0.2) {
-      // Talking while frowning
-      mouth = "      /(  )\\      ";
-    } else if (jaw > 0.2) {
-      // Medium open
-      mouth = "       ( )        ";
-    } else if (jaw > 0.12 && smile > 0.15) {
-      // Soft talking smile
-      mouth = "      \\(-)/       ";
+    // Derived values for subtle mouth control
+    var lipOpen = (lowerDnL + lowerDnR + upperUpL + upperUpR) / 4; // lips parting
+    var mouthShift = mouthL - mouthR; // negative=right, positive=left
+    var dimple = (dimpleL + dimpleR) / 2;
+
+    if (tongue > 0.35 && jaw > 0.1) {
+      mouth = "      (P~~)       ";  // tongue out
+    } else if (cheekPuf > 0.3) {
+      mouth = "     =(---)=      ";  // cheek puff
+    // ── Jaw open states (fine-grained) ──
+    } else if (jaw > 0.6) {
+      if (smile > 0.3)             mouth = "    \\(     )/     ";  // laughing wide
+      else if (frown > 0.2)        mouth = "     /(    )\\     ";  // yelling angry
+      else if (browUp > 0.3)       mouth = "      (    )      ";  // shocked open
+      else                          mouth = "     (     )      ";  // very wide open
+    } else if (jaw > 0.45) {
+      if (smile > 0.25)            mouth = "    \\(    )/      ";  // open laugh
+      else if (frown > 0.15)       mouth = "      /(  )\\      ";  // talking upset
+      else                          mouth = "      (   )       ";  // wide open
+    } else if (jaw > 0.35) {
+      if (smile > 0.2)             mouth = "     \\(  )/       ";  // talking smile
+      else if (frown > 0.15)       mouth = "      /(--)\\      ";  // talking frown
+      else                          mouth = "      ( - )       ";  // medium-wide
+    } else if (jaw > 0.25) {
+      if (smile > 0.2)             mouth = "     \\(--)/       ";  // chatting happy
+      else if (frown > 0.15)       mouth = "      /(-)\\       ";  // chatting sad
+      else if (sneer > 0.15)       mouth = "      (~-)        ";  // talking sneer
+      else                          mouth = "       ( )        ";  // medium open
+    } else if (jaw > 0.18) {
+      if (smile > 0.15)            mouth = "      \\(-)/       ";  // soft talk smile
+      else if (frown > 0.1)        mouth = "       /-)\\       ";  // soft talk frown
+      else                          mouth = "       (-)        ";  // slightly open
     } else if (jaw > 0.1) {
-      // Slightly open
-      mouth = "       (-)        ";
+      if (smile > 0.1)             mouth = "      \\--/        ";  // hint talk smile
+      else if (lipOpen > 0.15)     mouth = "       (-         ";  // lips parting
+      else                          mouth = "       --         ";  // barely open
+    // ── Closed mouth states ──
     } else if (pucker > 0.4 || funnel > 0.4) {
-      // Kiss / whistle
-      mouth = "       {o}        ";
-    } else if (pucker > 0.25 || funnel > 0.25) {
-      // Pucker
-      mouth = "       (o)        ";
-    } else if (funnel > 0.2 && jaw > 0.08) {
-      // Ooh face
-      mouth = "       {O}        ";
-    } else if (smile > 0.5 && squintL > 0.25) {
-      // Big grin (happy squint)
-      mouth = "   \\________/     ";
-    } else if (smile > 0.4) {
-      // Big smile
-      mouth = M[1];
-    } else if (isSmirkL && smile > 0.12) {
-      // Smirk left
-      mouth = "      ___//       ";
-    } else if (isSmirkR && smile > 0.12) {
-      // Smirk right
-      mouth = "      \\\\___       ";
+      mouth = "       {o}        ";  // kiss / whistle
+    } else if (pucker > 0.2 || funnel > 0.2) {
+      if (jaw > 0.05)              mouth = "       {O}        ";  // ooh
+      else                          mouth = "       (o)        ";  // pucker
+    } else if (smile > 0.55 && squintL > 0.2) {
+      mouth = "   \\________/     ";  // big grin
+    } else if (smile > 0.45) {
+      mouth = M[1];                                                // big smile
+    } else if (smile > 0.35 && dimple > 0.15) {
+      mouth = "   \\______/       ";  // dimpled smile
+    } else if (smile > 0.3) {
+      mouth = "    <**//**>      ";  // medium smile
+    } else if (isSmirkL && smile > 0.1) {
+      if (dimpleL > 0.2)           mouth = "      __~//       ";  // deep smirk L
+      else                          mouth = "      ___//       ";  // smirk left
+    } else if (isSmirkR && smile > 0.1) {
+      if (dimpleR > 0.2)           mouth = "      \\\\~__       ";  // deep smirk R
+      else                          mouth = "      \\\\___       ";  // smirk right
     } else if (smile > 0.2) {
-      // Small smile
-      mouth = "    <**//**>      ";
-    } else if (stretch > 0.35 || (frown > 0.15 && browDn > 0.2)) {
-      // Grimace / teeth gritting
-      mouth = "      >---<       ";
+      mouth = "      <---->      ";  // small smile
+    } else if (smile > 0.1) {
+      mouth = "      ---~        ";  // hint of smile
+    } else if (stretch > 0.3 || (frown > 0.12 && browDn > 0.15)) {
+      if (stretch > 0.5)           mouth = "     >=====<      ";  // teeth gritting
+      else                          mouth = "      >---<       ";  // grimace
     } else if (frown > 0.35 && browUp > 0.15) {
-      // Deep sad frown
-      mouth = M[3];
-    } else if (frown > 0.3) {
-      // Frown
-      mouth = M[2];
-    } else if (frown > 0.15 && stretch > 0.2) {
-      // Nervous / wobbly
-      mouth = "      ~-~-~       ";
-    } else if (press > 0.35) {
-      // Lips pressed tight
-      mouth = "      =====       ";
-    } else if (sneer > 0.3) {
-      // Disgusted
-      mouth = "      ~---~       ";
-    } else if (jawLeft > 0.25) {
-      // Jaw shifted left
-      mouth = "     -----        ";
-    } else if (jawRight > 0.25) {
-      // Jaw shifted right
-      mouth = "       -----      ";
-    } else if (frown > 0.1 && smile < 0.05) {
-      // Slight frown / meh
-      mouth = "      ---/        ";
+      mouth = M[3];                                                // deep sad
+    } else if (frown > 0.25) {
+      mouth = M[2];                                                // frown
+    } else if (frown > 0.15 && stretch > 0.15) {
+      mouth = "      ~-~-~       ";  // nervous
+    } else if (frown > 0.1) {
+      if (press > 0.2)             mouth = "      =---=       ";  // tight frown
+      else                          mouth = "      ---/        ";  // slight frown
+    } else if (press > 0.3) {
+      mouth = "      =====       ";  // lips pressed tight
+    } else if (press > 0.15) {
+      mouth = "      ====        ";  // lips pressed
+    } else if (sneer > 0.25) {
+      mouth = "      ~---~       ";  // disgusted
+    } else if (sneer > 0.1) {
+      mouth = "      ~--~        ";  // slight disgust
+    } else if (Math.abs(mouthShift) > 0.2) {
+      if (mouthShift > 0)          mouth = "     -----        ";  // shifted left
+      else                          mouth = "       -----      ";  // shifted right
+    } else if (Math.abs(mouthShift) > 0.1) {
+      if (mouthShift > 0)          mouth = "      -----       ";  // slight left
+      else                          mouth = "      -----       ";  // slight right (same centered)
+    } else if (lipOpen > 0.1 && jaw < 0.08) {
+      mouth = "      - - -       ";  // lips relaxed/parted
     } else {
-      // Neutral closed
-      mouth = "      -----       ";
+      mouth = "      -----       ";  // neutral
     }
 
     // Build face string directly (not via face()) to allow custom nose
