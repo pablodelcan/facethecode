@@ -1014,7 +1014,7 @@ function emotionFace(n) { const em=E[n]; return face(em.brow,em.arc,em.pupil,em.
 // ── Scramble ──────────────────────────────────────────────────────────────────
 var _scrambleIv = null; // exposed so camera can kill it
 function scrambleTo(target, onDone) {
-  if (animating) return;
+  if (animating || camActive) return;
   animating = true;
   const el = document.getElementById("ascii-face");
   const from = el.textContent.padEnd(target.length, " ");
@@ -1064,6 +1064,7 @@ function resetIdle() {
   clearTimeout(idleTimer);
   clearInterval(idleIv);
   idleSpeed = 6000;
+  if (camActive) return; // don't restart idle while camera is active
   idleTimer = setTimeout(startIdle, idleSpeed);
 }
 
@@ -1078,7 +1079,7 @@ function scheduleNextIdle() {
 }
 
 function doIdleStep() {
-  if (animating) return;
+  if (animating || camActive) return;
   const roll = Math.random();
   if (roll < 0.4)      { state.ei=(state.ei+1)%EYES.length; playScramble(); scrambleTo(presetFace(state)); }
   else if (roll < 0.7) { state.mi=(state.mi+1)%M.length;    playScramble(); scrambleTo(presetFace(state)); }
@@ -1470,6 +1471,7 @@ function randomFace() {
 // ── Key handler ───────────────────────────────────────────────────────────────
 document.addEventListener("keydown", e => {
   startAmbient();
+  if (camActive) return; // don't process shortcuts while camera is active
   resetIdle();
   if (e.key>="0"&&e.key<="9"){goEmotion(parseInt(e.key));return;}
   switch(e.key.toLowerCase()) {
@@ -1633,10 +1635,10 @@ resetIdle();
 })();
 
 // ── Camera Face Tracking ──────────────────────────────────────────────────────
+var camActive = false; // global so idle/keydown can check
 (function() {
   var camBtn = document.getElementById('cam-toggle');
   var camVideo = document.getElementById('cam-video');
-  var camActive = false;
   var camStream = null;
   var faceLandmarker = null;
   var camRAF = null;
