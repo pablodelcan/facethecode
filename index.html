@@ -1790,11 +1790,23 @@ var camActive = false; // global so idle/keydown can check
     var mouthShift = mouthL - mouthR; // negative=right, positive=left
     var dimple = (dimpleL + dimpleR) / 2;
 
-    if (tongue > 0.35 && jaw > 0.1) {
-      mouth = "      (P~~)       ";  // tongue out
+    // ── Tongue (multiple intensities) ──
+    if (tongue > 0.7 && jaw > 0.3) {
+      mouth = "     (P~~~~)      ";  // tongue way out + wide open
+    } else if (tongue > 0.5 && jaw > 0.2) {
+      mouth = "      (P~~)       ";  // tongue out open
+    } else if (tongue > 0.35 && jaw > 0.08) {
+      mouth = "      (P~)        ";  // tongue peeking
+    } else if (tongue > 0.2) {
+      mouth = "      (-P)        ";  // tongue tip showing
     } else if (cheekPuf > 0.3) {
       mouth = "     =(---)=      ";  // cheek puff
-    // ── Jaw open states (fine-grained) ──
+    // ── Very wide open (multiple expressions) ──
+    } else if (jaw > 0.7) {
+      if (smile > 0.3)             mouth = "   \\(      )/     ";  // huge laugh
+      else if (frown > 0.2)        mouth = "    /(      )\\    ";  // screaming
+      else if (browUp > 0.35)      mouth = "     (      )     ";  // shocked gasp
+      else                          mouth = "    (       )     ";  // max open
     } else if (jaw > 0.6) {
       if (smile > 0.3)             mouth = "    \\(     )/     ";  // laughing wide
       else if (frown > 0.2)        mouth = "     /(    )\\     ";  // yelling angry
